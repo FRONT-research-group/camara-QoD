@@ -121,14 +121,13 @@ class QosProfileName(
     RootModel[str]
 ):
     root: Annotated[str, Field(
+        default="QOS_S",
         pattern=r'^[a-zA-Z0-9_.-]+$',
         min_length=3,
-        max_length=256
-    )] = Field(
-        ...,
+        max_length=256,
         description='A unique name for identifying a specific QoS profile.\nThis may follow different formats depending on the API provider implementation.\nSome options addresses:\n  - A UUID style string\n  - Support for predefined profiles QOS_S, QOS_M, QOS_L, and QOS_E\n  - A searchable descriptive name\nThe set of QoS Profiles that an API provider is offering may be retrieved by means of the QoS Profile API (qos-profile) or agreed on onboarding time.\n',
-        examples=['voice'],
-    )
+        examples=['QOS_S'],
+    )]
 
 
 class Type(Enum):
@@ -259,8 +258,16 @@ class EventQosStatusChanged(CloudEvent):
 
 
 class ApplicationServer(BaseModel):
-    ipv4Address: Optional[ApplicationServerIpv4Address] = None
-    ipv6Address: Optional[ApplicationServerIpv6Address] = None
+    ipv4Address: Optional[ApplicationServerIpv4Address] = Field(
+        None,
+        description="IPv4 address of the application server.",
+        examples=["198.51.100.0/24"]
+    )
+    ipv6Address: Optional[ApplicationServerIpv6Address] = Field(
+        None,
+        description="IPv6 address of the application server.",
+        examples=["2001:db8:85a3:8d3:1319:8a2e:370:7344"]
+    )
 
 
 class DeviceIpv4Addr1(BaseModel):
