@@ -1,6 +1,6 @@
 '''
     Run this with:
-      uvicorn main:_app --host 0.0.0.0 --port 8000 --reload or python3 main.py
+      uvicorn main:_app --host 0.0.0.0 --port 8001 --reload or python3 main.py
 '''
 from app.utils.logger import get_app_logger
 from app import _app

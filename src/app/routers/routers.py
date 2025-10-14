@@ -7,13 +7,20 @@ from pydantic import ValidationError
 from app.utils.logger import get_app_logger
 from app.models.schemas import CreateSession, SessionInfo, QosStatus, SessionId, XCorrelator
 from app.services.db import in_memory_db
-from app.services.backend_routers import create_session 
+from app.services.backend_routers import create_session, get_session_info, delete_session
+from app.helpers.response_examples import (
+    CREATE_SESSION_ERROR_RESPONSES, 
+    GET_SESSION_ERROR_RESPONSES, 
+    DELETE_SESSION_ERROR_RESPONSES,
+    SUCCESS_RESPONSES
+)
 
 logger = get_app_logger()
 
 router = APIRouter()
 
 
+#NOTE check if in the parameters the x_correlator is required or not
 @router.post(
     "/sessions",
     response_model=SessionInfo,
@@ -43,6 +50,10 @@ router = APIRouter()
     - sink: Notification callback URL
     - sinkCredential: Authentication for notifications
     """,
+    responses={
+        201: SUCCESS_RESPONSES["CREATE_SESSION_201"],
+        **CREATE_SESSION_ERROR_RESPONSES
+    }
 )
 async def backend_create_session(
     session_request: CreateSession,
@@ -51,35 +62,42 @@ async def backend_create_session(
 ):
     return await create_session(session_request, x_correlator, store)
 
-                                    
+
+@router.get(
+    "/sessions/{session_id}", 
+    response_model=SessionInfo,
+    summary="Get QoS session by ID",
+    status_code=status.HTTP_200_OK,
+    description="Retrieve a specific QoS session by its ID with optional x-correlator",
+    responses={
+        200: SUCCESS_RESPONSES["GET_SESSION_200"],
+        **GET_SESSION_ERROR_RESPONSES
+    }
+)
+async def get_session(
+    session_id: str, 
+    x_correlator: Optional[str] = Header(None, description="Correlation id for the different services"),
+    store: dict = Depends(in_memory_db)
+):
+    """Get a specific QoS session by ID"""
+    return await get_session_info(session_id, x_correlator, store)
 
 
 
 
-
-
-
-
-@router.get("/sessions", summary="List all sessions")
-async def list_sessions(store: dict = Depends(in_memory_db)):
-    """List all active sessions"""
-    return {"sessions": list(store.values()), "count": len(store)}
-
-
-@router.get("/sessions/{session_id}", response_model=SessionInfo)
-async def get_session(session_id: str, store: dict = Depends(in_memory_db)):
-    """Get a specific session by ID"""
-    if session_id not in store:
-        raise HTTPException(status_code=404, detail="Session not found")
-    return store[session_id]
-
-
-@router.delete("/sessions/{session_id}")
-async def delete_session(session_id: str, store: dict = Depends(in_memory_db)):
-    """Delete a specific session by ID"""
-    if session_id not in store:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    deleted_session = store.pop(session_id)
-    logger.info(f"Session {session_id} deleted successfully")
-    return {"message": f"Session {session_id} deleted successfully", "session": deleted_session}
+@router.delete(
+    "/sessions/{session_id}",
+    summary="Delete QoS session by ID",
+    description="Delete a specific QoS session by its ID with optional x-correlator validation",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        204: SUCCESS_RESPONSES["DELETE_SESSION_204"],
+        **DELETE_SESSION_ERROR_RESPONSES
+    }
+)
+async def delete_session_endpoint(
+    session_id: str, 
+    x_correlator: Optional[str] = Header(None, description="Correlation id for the different services"),
+):
+    """Delete a specific QoS session by ID with x-correlator validation"""
+    return await delete_session(session_id, x_correlator)
