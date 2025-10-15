@@ -6,7 +6,7 @@ from app.utils.logger import get_app_logger
 from app.models.schemas import SessionInfo, QosStatus, SessionId, XCorrelator
 from app.services.db import store_session_with_correlator, get_session_data, verify_session_access, in_memory_db
 from app.helpers.error_responses import create_error_response
-
+from app.helpers.TF import post_tf_to_qos, delete_tf_to_qos
 logger = get_app_logger()
 
 
@@ -84,11 +84,11 @@ async def create_session(
             # This is a simplified check - in a real implementation you'd check the database
             # for existing active sessions for the same device
             existing_sessions = [s for s in store.values() if 
-                               s.get('session_info') and 
-                               s['session_info'].device and 
+                               s.get('session') and 
+                               s['session'].device and 
                                session_request.device and
-                               s['session_info'].device == session_request.device and
-                               s['session_info'].qosStatus == QosStatus.AVAILABLE]
+                               s['session'].device == session_request.device and
+                               s['session'].qosStatus == QosStatus.AVAILABLE]
             
             if existing_sessions:
                 logger.warning(f"Session conflict detected for device: {session_request.device}")
@@ -127,13 +127,17 @@ async def create_session(
         headers = {}
         if validated_correlator:
             headers["x-correlator"] = validated_correlator
-            
+
+        #NOTE testing the TF fucntions 
+        await post_tf_to_qos(str(session_id.root))
+
         return JSONResponse(
             status_code=status.HTTP_201_CREATED,
             content=session_info.model_dump(mode="json"),
             headers=headers
         )
         
+
     except HTTPException:
         # Re-raise HTTP exceptions
         raise
@@ -267,6 +271,9 @@ async def delete_session(
         # Get the session info before deletion
         # session_info = session_data.get("session")
         stored_correlator = session_data.get("x_correlator")
+        
+        # Delete from external QoS system first
+        await delete_tf_to_qos(session_id)
         
         # Delete the session from database
         store = in_memory_db()

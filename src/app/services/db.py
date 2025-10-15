@@ -5,16 +5,22 @@ DB = {}
 def in_memory_db():
     return DB
 
-def store_session_with_correlator(session_id: str, session_info, x_correlator: str = None):
-    """Store session with its x-correlator for cross-checking"""
+def store_session_with_correlator(session_id: str, session_info, x_correlator: str = None, QoS_sub_id: str = None):
+    """Store session with its x-correlator and QoS_sub_id for cross-checking"""
     DB[session_id] = {
         "session": session_info,
-        "x_correlator": x_correlator
+        "x_correlator": x_correlator,
+        "QoS_sub_id": QoS_sub_id
     }
 
 def get_session_data(session_id: str):
     """Get session data including x-correlator"""
     return DB.get(session_id, {})
+
+def update_subscription_id(session_id: str, QoS_sub_id: str):
+    """Update the QoS subscription ID for a session"""
+    if session_id in DB:
+        DB[session_id]["QoS_sub_id"] = QoS_sub_id
 
 def verify_session_access(session_id: str, x_correlator: str = None) -> bool:
     """Verify if the provided x-correlator matches the one used to create the session"""
