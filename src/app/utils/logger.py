@@ -1,8 +1,25 @@
 import logging
 
+class ColoredFormatter(logging.Formatter):
+    # ANSI escape codes for colors
+    COLORS = {
+        'DEBUG': '\033[36m',    # Cyan
+        'INFO': '\033[32m',     # Green
+        'WARNING': '\033[33m',  # Yellow
+        'ERROR': '\033[31m',    # Red
+        'CRITICAL': '\033[41m', # Red background
+    }
+    RESET = '\033[0m'
+
+    def format(self, record):
+        levelname = record.levelname
+        if levelname in self.COLORS:
+            record.levelname = f"{self.COLORS[levelname]}{levelname}{self.RESET}"
+        return super().format(record)
+
 def get_app_logger():
     """
-    Set up and return the application logger with debug support.
+    Set up and return the application logger with debug support and colored output.
     """
     logger = logging.getLogger('nef_logger')
     
@@ -10,7 +27,7 @@ def get_app_logger():
         logger.setLevel(logging.DEBUG)  # Allow all log levels from DEBUG and above
 
         # Define log format
-        formatter = logging.Formatter(
+        formatter = ColoredFormatter(
             '%(asctime)s,%(msecs)03d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s',
             datefmt='%Y-%m-%d:%H:%M:%S'
         )

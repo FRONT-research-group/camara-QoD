@@ -1,10 +1,15 @@
-from app.services.db import get_session_data, update_subscription_id
+from app.services.db import get_session_data, update_subscription_id, in_memory_db
+from app.utils.logger import get_app_logger
 import json
 import httpx
 import asyncio
+from app.utils.config import ASSESSIONWITHQOS_URL
 
 
-async def schedule_qos_deletion(scs_as_id, QoS_sub_id, duration):
+logger = get_app_logger()
+
+
+async def schedule_qos_deletion(scs_as_id, QoS_sub_id, duration, session_id):
     """
     Schedule a deletion of QoS subscription after the specified duration
     
@@ -12,17 +17,18 @@ async def schedule_qos_deletion(scs_as_id, QoS_sub_id, duration):
         scs_as_id: The x-correlator value (used as scsAsId)
         QoS_sub_id: The QoS subscription ID to delete
         duration: Time in seconds before deletion
+        session_id: The session ID to delete from database
     """
-    print(f"TF: Scheduled deletion for subscription {QoS_sub_id} in {duration} seconds")
+    logger.info(f"Scheduled QoS deletion for subscription {QoS_sub_id} (session {session_id}) in {duration} seconds")
     
     # Wait for the duration asynchronously
     await asyncio.sleep(duration)
     
     # Send delete request
-    delete_endpoint = f"http://10.220.2.73:8585/3gpp-as-session-with-qos/v1/{scs_as_id}/subscriptions/{QoS_sub_id}"
+    delete_endpoint = f"{ASSESSIONWITHQOS_URL}/{scs_as_id}/subscriptions/{QoS_sub_id}"
     
     try:
-        print(f"TF: Sending DELETE request to {delete_endpoint}")
+        logger.info(f"Sending scheduled DELETE to QoS system: {delete_endpoint}")
         
         headers = {}
         if scs_as_id:
@@ -35,24 +41,29 @@ async def schedule_qos_deletion(scs_as_id, QoS_sub_id, duration):
                 timeout=10.0
             )
         
-            print(f"TF: DELETE Response Status: {response.status_code}")
-            print(f"TF: DELETE Response: {response.text}")
-            
             if response.status_code in [200, 204]:
-                print(f"TF: Successfully deleted QoS subscription {QoS_sub_id}")
+                logger.info(f"Successfully deleted QoS subscription {QoS_sub_id}")
+                
+                # Delete the session from database after successful QoS deletion
+                store = in_memory_db()
+                if session_id in store:
+                    del store[session_id]
+                    logger.info(f"Session {session_id} deleted from database after duration expiry")
+                else:
+                    logger.warning(f"Session {session_id} not found in database during scheduled deletion")
             else:
-                print(f"TF: Warning - DELETE returned status: {response.status_code}")
+                logger.warning(f"QoS deletion returned status {response.status_code}: {response.text}")
             
     except Exception as e:
-        print(f"TF: Error deleting QoS subscription: {str(e)}")
+        logger.error(f"Error deleting QoS subscription {QoS_sub_id}: {str(e)}")
 
 
 async def post_tf_to_qos(session_id):
-    print(f"TF: Notifying QoS system about session {session_id}")
+    logger.info(f"Sending QoS session {session_id} to external QoS system")
     session_data = get_session_data(session_id)
     
     if not session_data:
-        print(f"TF: Session {session_id} not found in database")
+        logger.error(f"Session {session_id} not found in database")
         return
     
     # Extract the actual session info from the stored data
@@ -60,7 +71,7 @@ async def post_tf_to_qos(session_id):
     x_correlator = session_data.get("x_correlator")
     
     if not session_info:
-        print(f"TF: No session info found for session {session_id}")
+        logger.error(f"No session info found for session {session_id}")
         return
     
     # Extract required fields
@@ -136,14 +147,13 @@ async def post_tf_to_qos(session_id):
         "ueIpv4Addr": device_ip
     }
     
-    print(f"TF: QoS Payload:\n{json.dumps(qos_payload, indent=2)}")
-    print(f"TF: X-Correlator - {x_correlator}")
+    logger.debug(f"QoS Payload: {json.dumps(qos_payload, indent=2)}")
     
     # Send the payload to the QoS system
-    qos_endpoint = f"http://10.220.2.73:8585/3gpp-as-session-with-qos/v1/{x_correlator}/subscriptions"
+    qos_endpoint = f"{ASSESSIONWITHQOS_URL}/{x_correlator}/subscriptions"
     
     try:
-        print(f"TF: Sending QoS payload to {qos_endpoint}")
+        logger.info(f"Sending POST to QoS system: {qos_endpoint}")
         
         headers = {
             "Content-Type": "application/json"
@@ -159,12 +169,9 @@ async def post_tf_to_qos(session_id):
                 timeout=10.0
             )
         
-            print(f"TF: QoS System Response Status: {response.status_code}")
-            print(f"TF: QoS System Response: {response.text}")
+            logger.info(f"AsSessionWithQoS Response Status: {response.status_code}")
             
             if response.status_code == 201:
-                print(f"TF: Successfully sent QoS payload to system")
-                
                 # Extract subscriptionId from response
                 try:
                     response_data = response.json()
@@ -174,33 +181,31 @@ async def post_tf_to_qos(session_id):
                         # Try to get subscriptionId directly from response
                         QoS_sub_id = response_data.get("subscriptionId")
                     
-                    print(f"TF: QoS Subscription ID: {QoS_sub_id}")
-                    
-                    # Store the subscription ID in the database
-                    update_subscription_id(session_id, QoS_sub_id)
-                    print(f"TF: Stored QoS subscription ID for session {session_id}")
-                    
-                    # Get duration and schedule delete
-                    duration = session_info.duration
-                    print(f"TF: Session duration: {duration} seconds")
-                    print(f"TF: Scheduling deletion after {duration} seconds")
-                    
-                    # Create a background task to delete the subscription after duration
                     if QoS_sub_id:
+                        logger.info(f"QoS Subscription ID: {QoS_sub_id}")
+                        
+                        # Store the subscription ID in the database
+                        update_subscription_id(session_id, QoS_sub_id)
+                        
+                        # Get duration and schedule delete
+                        duration = session_info.duration
+                        logger.info(f"Scheduling QoS deletion after {duration} seconds")
+                        
+                        # Create a background task to delete the subscription after duration
                         asyncio.create_task(
-                            schedule_qos_deletion(x_correlator, QoS_sub_id, duration)
+                            schedule_qos_deletion(x_correlator, QoS_sub_id, duration, session_id)
                         )
                     else:
-                        print(f"TF: Warning - Could not extract QoS subscription ID from response")
+                        logger.warning("Could not extract QoS subscription ID from response")
                         
                 except Exception as e:
-                    print(f"TF: Error processing response for auto-deletion: {str(e)}")
+                    logger.error(f"Error processing QoS response for auto-deletion: {str(e)}")
             else:
-                print(f"TF: Warning - QoS system returned non-success status: {response.status_code}")
+                logger.warning(f"QoS system returned status {response.status_code}: {response.text}")
         
             
     except Exception as e:
-        print(f"TF: Error sending QoS payload: {str(e)}")
+        logger.error(f"Error sending QoS payload: {str(e)}")
     
     return qos_payload
 
@@ -211,31 +216,31 @@ async def delete_tf_to_qos(session_id):
     Args:
         session_id: The session ID to delete
     """
-    print(f"TF: Deleting QoS subscription for session {session_id}")
+    logger.info(f"Deleting QoS subscription for session {session_id}")
     
     # Get session data to retrieve QoS_sub_id and x_correlator
     session_data = get_session_data(session_id)
     
     if not session_data:
-        print(f"TF: Session {session_id} not found in database")
+        logger.warning(f"Session {session_id} not found in database")
         return
     
     QoS_sub_id = session_data.get("QoS_sub_id")
     x_correlator = session_data.get("x_correlator")
     
     if not QoS_sub_id:
-        print(f"TF: No QoS subscription ID found for session {session_id}, skipping external deletion")
+        logger.info(f"No QoS subscription ID found for session {session_id}, skipping external deletion")
         return
     
     if not x_correlator:
-        print(f"TF: No x-correlator found for session {session_id}, cannot delete subscription")
+        logger.warning(f"No x-correlator found for session {session_id}, cannot delete subscription")
         return
     
     # Send delete request to external QoS system
-    delete_endpoint = f"http://10.220.2.73:8585/3gpp-as-session-with-qos/v1/{x_correlator}/subscriptions/{QoS_sub_id}"
+    delete_endpoint = f"{ASSESSIONWITHQOS_URL}/{x_correlator}/subscriptions/{QoS_sub_id}"
     
     try:
-        print(f"TF: Sending DELETE request to {delete_endpoint}")
+        logger.info(f"Sending DELETE to QoS system: {delete_endpoint}")
         
         headers = {}
         if x_correlator:
@@ -248,13 +253,10 @@ async def delete_tf_to_qos(session_id):
                 timeout=10.0
             )
         
-            print(f"TF: DELETE Response Status: {response.status_code}")
-            print(f"TF: DELETE Response: {response.text}")
-            
             if response.status_code in [200, 204]:
-                print(f"TF: Successfully deleted QoS subscription {QoS_sub_id}")
+                logger.info(f"Successfully deleted QoS subscription {QoS_sub_id}")
             else:
-                print(f"TF: Warning - DELETE returned status: {response.status_code}")
+                logger.warning(f"QoS deletion returned status {response.status_code}: {response.text}")
                 
     except Exception as e:
-        print(f"TF: Error deleting QoS subscription: {str(e)}")
+        logger.error(f"Error deleting QoS subscription: {str(e)}")

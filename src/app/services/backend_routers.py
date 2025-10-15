@@ -188,6 +188,7 @@ async def get_session_info(
             if verify_session_access(session_id, validated_correlator) == False:
                 stored_correlator = session_data.get("x_correlator", "none")
                 logger.warning(f"Access denied: Session {session_id} x-correlator mismatch. Provided: {validated_correlator}, Expected: {stored_correlator}")
+                
                 #NOTE fix this error not correct
                 raise create_error_response(
                     403,
