@@ -12,4 +12,5 @@ def create_error_response(status_code: int, error_code: str, message: str) -> HT
     return HTTPException(
         status_code=status_code,
         detail=error_detail.model_dump()
+
     )

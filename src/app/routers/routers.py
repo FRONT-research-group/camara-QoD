@@ -21,6 +21,8 @@ router = APIRouter()
 
 
 #NOTE check if in the parameters the x_correlator is required or not
+
+
 @router.post(
     "/sessions",
     response_model=SessionInfo,

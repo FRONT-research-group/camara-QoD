@@ -4,6 +4,10 @@ import json
 import httpx
 import asyncio
 from app.utils.config import ASSESSIONWITHQOS_URL
+"""
+Transformation Functions for CAMARA QoD API to AsSessionWithQoS/NEF API.
+
+"""
 
 
 logger = get_app_logger()
@@ -11,7 +15,8 @@ logger = get_app_logger()
 
 async def schedule_qos_deletion(scs_as_id, QoS_sub_id, duration, session_id):
     """
-    Schedule a deletion of QoS subscription after the specified duration
+    Schedule a deletion of QoS subscription after the specified duration.
+    DELETE request is sent to the AsSessionWithQoS endpoint and CAMARA QoD.
     
     Args:
         scs_as_id: The x-correlator value (used as scsAsId)
@@ -28,7 +33,7 @@ async def schedule_qos_deletion(scs_as_id, QoS_sub_id, duration, session_id):
     delete_endpoint = f"{ASSESSIONWITHQOS_URL}/{scs_as_id}/subscriptions/{QoS_sub_id}"
     
     try:
-        logger.info(f"Sending scheduled DELETE to QoS system: {delete_endpoint}")
+        logger.info(f"Sending scheduled DELETE to NEF/QoS: {delete_endpoint}")
         
         headers = {}
         if scs_as_id:
@@ -59,7 +64,22 @@ async def schedule_qos_deletion(scs_as_id, QoS_sub_id, duration, session_id):
 
 
 async def post_tf_to_qos(session_id):
-    logger.info(f"Sending QoS session {session_id} to external QoS system")
+
+
+     #NOTE : Fix in flow descriptions to include ports if provided, first i need to check documentation of AsSessionWithQoS api flow descriptions fields
+
+
+    """
+    POST request: Transformation function from CAMARA payload --> AsSessionWithQoS/NEF payload
+
+    Args:
+        session_id: The CAMARA session ID to transform and send
+    Returns:
+        The JSON payload sent to AsSessionWithQoS
+    """
+   
+
+    logger.debug(f"Sending camara_session_id {session_id} to AsSessionWithQoS")
     session_data = get_session_data(session_id)
     
     if not session_data:
@@ -146,9 +166,9 @@ async def post_tf_to_qos(session_id):
         "supportedFeatures": "12",
         "ueIpv4Addr": device_ip
     }
-    
-    logger.debug(f"QoS Payload: {json.dumps(qos_payload, indent=2)}")
-    
+
+    logger.debug(f"AsSessionWithQoS Payload: {json.dumps(qos_payload, indent=2)}")
+
     # Send the payload to the QoS system
     qos_endpoint = f"{ASSESSIONWITHQOS_URL}/{x_correlator}/subscriptions"
     
@@ -211,7 +231,7 @@ async def post_tf_to_qos(session_id):
 
 async def delete_tf_to_qos(session_id):
     """
-    Delete QoS subscription from the external system
+    Delete QoS subscription from NEF/AsSessionWithQoS when CAMARA session is deleted.
     
     Args:
         session_id: The session ID to delete
@@ -240,7 +260,7 @@ async def delete_tf_to_qos(session_id):
     delete_endpoint = f"{ASSESSIONWITHQOS_URL}/{x_correlator}/subscriptions/{QoS_sub_id}"
     
     try:
-        logger.info(f"Sending DELETE to QoS system: {delete_endpoint}")
+        logger.info(f"Sending DELETE to NEF: {delete_endpoint}")
         
         headers = {}
         if x_correlator:
@@ -256,7 +276,7 @@ async def delete_tf_to_qos(session_id):
             if response.status_code in [200, 204]:
                 logger.info(f"Successfully deleted QoS subscription {QoS_sub_id}")
             else:
-                logger.warning(f"QoS deletion returned status {response.status_code}: {response.text}")
+                logger.warning(f"QoS/NEF deletion returned status {response.status_code}: {response.text}")
                 
     except Exception as e:
         logger.error(f"Error deleting QoS subscription: {str(e)}")
