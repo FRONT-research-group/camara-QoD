@@ -1,4 +1,4 @@
-#!/home/ubuntu/QoD-NCSRD/venv/bin/python3
+#!/home/linux/camara-QoD/venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys
