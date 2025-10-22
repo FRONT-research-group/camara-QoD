@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from typing import Optional
 import uuid
 from app.utils.logger import get_app_logger
-from app.models.schemas import SessionInfo, QosStatus, SessionId, XCorrelator
+from app.models.schemas import SessionInfo, QosStatus, SessionId, XCorrelator, ExtendSessionDuration
 from app.services.db import store_session_with_correlator, get_session_data, verify_session_access, in_memory_db
 from app.helpers.error_responses import create_error_response
 from app.helpers.TF import post_tf_to_qos, delete_tf_to_qos
@@ -303,4 +303,109 @@ async def delete_session(
             detail=f"Internal server error occurred while deleting session: {str(e)}"
         )
 
-
+async def extend_duration(
+    sessions_id: str,
+    extend_request: ExtendSessionDuration,
+    x_correlator: Optional[str] = None,
+):
+    """
+    Extend the duration of an existing QoS session by its ID
+    
+    Args:
+        sessions_id: The session ID to extend
+        extend_request: The request body with requestedAdditionalDuration
+        x_correlator: Optional correlation ID header for validation
+        
+    Returns:
+        SessionInfo: The updated session information with extended duration
+    """
+    try:
+        # Validate x-correlator if provided
+        validated_correlator = validate_x_correlator(x_correlator)
+        logger.info(f"Extending duration for QoS session {sessions_id} with correlator: {validated_correlator}")
+        
+        # Get session data (includes correlator info)
+        session_data = get_session_data(sessions_id)
+        if not session_data:
+            logger.warning(f"Session {sessions_id} not found for duration extension")
+            raise create_error_response(
+                404,
+                "NOT_FOUND",
+                f"Session with ID '{sessions_id}' not found"
+            )
+        
+        # Cross-check x-correlator if provided
+        if validated_correlator:
+            if not verify_session_access(sessions_id, validated_correlator):
+                stored_correlator = session_data.get("x_correlator", "none")
+                logger.warning(f"Extend access denied: Session {sessions_id} x-correlator mismatch. Provided: {validated_correlator}, Expected: {stored_correlator}")
+                raise create_error_response(
+                    403,
+                    "PERMISSION_DENIED",
+                    "Access denied: Session was created with a different x-correlator"
+                )
+            else:
+                logger.info(f"x-correlator verification successful for session {sessions_id} duration extension")
+        
+        # Get the session info
+        session_info = session_data.get("session")
+        
+        if not session_info:
+            logger.error(f"No session info found for session {sessions_id}")
+            raise create_error_response(
+                500,
+                "INTERNAL",
+                "Session data is corrupted"
+            )
+        
+        # Validate that session is AVAILABLE
+        if session_info.qosStatus != QosStatus.AVAILABLE:
+            logger.warning(f"Cannot extend session {sessions_id} with status {session_info.qosStatus}")
+            raise create_error_response(
+                400,
+                "INVALID_ARGUMENT",
+                f"Session must be in AVAILABLE status to extend duration. Current status: {session_info.qosStatus}"
+            )
+        
+        # Get the additional duration from the request
+        additional_duration = extend_request.requestedAdditionalDuration
+        
+        # Calculate new total duration
+        new_duration = session_info.duration + additional_duration
+        
+        # Optional: Validate maximum duration (e.g., 86400 seconds = 24 hours)
+        max_duration = 86400
+        if new_duration > max_duration:
+            logger.warning(f"Requested total duration {new_duration} exceeds maximum {max_duration}")
+            raise create_error_response(
+                400,
+                "QUALITY_ON_DEMAND.DURATION_OUT_OF_RANGE",
+                f"The extended duration would exceed the maximum allowed duration of {max_duration} seconds"
+            )
+        
+        # Update the session duration
+        session_info.duration = new_duration
+        
+        # Update the session in the database
+        store = in_memory_db()
+        if sessions_id in store:
+            store[sessions_id]["session"] = session_info
+            logger.info(f"Session {sessions_id} duration extended by {additional_duration} seconds to {new_duration} seconds total")
+        else:
+            logger.error(f"Session {sessions_id} not found in store during duration extension")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Session with ID '{sessions_id}' not found in store"
+            )
+        
+        return session_info
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        logger.error(f"Error extending duration for session {sessions_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error occurred while extending session duration: {str(e)}"
+        )

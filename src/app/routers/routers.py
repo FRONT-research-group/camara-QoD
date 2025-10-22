@@ -5,14 +5,15 @@ import uuid
 from datetime import datetime, timezone
 from pydantic import ValidationError
 from app.utils.logger import get_app_logger
-from app.models.schemas import CreateSession, SessionInfo, QosStatus, SessionId, XCorrelator
+from app.models.schemas import CreateSession, SessionInfo, QosStatus, SessionId, XCorrelator, ExtendSessionDuration
 from app.services.db import in_memory_db
-from app.services.backend_routers import create_session, get_session_info, delete_session
+from app.services.backend_routers import create_session, get_session_info, delete_session, extend_duration
 from app.helpers.response_examples import (
     CREATE_SESSION_ERROR_RESPONSES, 
     GET_SESSION_ERROR_RESPONSES, 
     DELETE_SESSION_ERROR_RESPONSES,
-    SUCCESS_RESPONSES
+    SUCCESS_RESPONSES,
+    COMMON_ERROR_RESPONSES
 )
 
 logger = get_app_logger()
@@ -103,3 +104,22 @@ async def delete_session_endpoint(
 ):
     """Delete a specific QoS session by ID with x-correlator validation"""
     return await delete_session(session_id, x_correlator)
+
+
+@router.post(
+    "/sessions/{sessions_id}/extend",
+    response_model=SessionInfo,
+    summary="Extend QoS session duration",
+    description="Extend the duration of an existing QoS session by its ID",
+    status_code=status.HTTP_200_OK,
+    responses={**COMMON_ERROR_RESPONSES}
+    
+    )
+async def extend_session_duration(
+    sessions_id: str,
+    extend_request: ExtendSessionDuration,
+    x_correlator: Optional[str] = Header(None, description="Correlation id for the different services"),
+    store: dict = Depends(in_memory_db)
+):
+    """Extend the duration of an existing QoS session by its ID"""
+    return await extend_duration(sessions_id, extend_request, x_correlator)
