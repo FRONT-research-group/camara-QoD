@@ -1,6 +1,6 @@
-
 from app.utils.logger import get_app_logger
 import json
+"""In-memory Database for storing, but could be replaced with persistent storage"""
 logger = get_app_logger()
 
 
@@ -18,7 +18,7 @@ def store_session_with_correlator(session_id: str, session_info, x_correlator: s
         "deletion_task": deletion_task
     }
     try:
-        # Convert session_info to dict if it has model_dump (Pydantic)
+        # Convert session_info to dict
         db_json = {k: {**v, "session": v["session"].model_dump() if hasattr(v["session"], "model_dump") else v["session"]} for k, v in DB.items()}
         logger.debug(f"DB after store_session_with_correlator: {json.dumps(db_json, indent=2, default=str)}")
     except Exception:

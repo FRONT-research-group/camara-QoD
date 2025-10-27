@@ -14,5 +14,4 @@ EXPOSE 8001
 ENV ASSESSIONWITHQOS_URL="http://10.220.2.73:8585/3gpp-as-session-with-qos/v1"
 ENV LOG_LEVEL="DEBUG"
 
-# Start FastAPI app
 CMD ["python3", "src/main.py"]

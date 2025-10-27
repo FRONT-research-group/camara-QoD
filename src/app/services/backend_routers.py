@@ -154,7 +154,7 @@ async def create_session(
 
         return JSONResponse(
             status_code=status.HTTP_201_CREATED,
-            content=session_info.model_dump(mode="json"),
+            content=session_info.model_dump(mode="json", exclude_none=True),
             headers=headers
         )
         
