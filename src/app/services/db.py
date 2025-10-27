@@ -5,12 +5,13 @@ DB = {}
 def in_memory_db():
     return DB
 
-def store_session_with_correlator(session_id: str, session_info, x_correlator: str = None, QoS_sub_id: str = None):
-    """Store session with its x-correlator and QoS_sub_id for cross-checking"""
+def store_session_with_correlator(session_id: str, session_info, x_correlator: str = None, QoS_sub_id: str = None, deletion_task = None):
+    """Store session with its x-correlator, QoS_sub_id, and deletion task for cross-checking"""
     DB[session_id] = {
         "session": session_info,
         "x_correlator": x_correlator,
-        "QoS_sub_id": QoS_sub_id
+        "QoS_sub_id": QoS_sub_id,
+        "deletion_task": deletion_task
     }
 
 def get_session_data(session_id: str):
@@ -21,6 +22,16 @@ def update_subscription_id(session_id: str, QoS_sub_id: str):
     """Update the QoS subscription ID for a session"""
     if session_id in DB:
         DB[session_id]["QoS_sub_id"] = QoS_sub_id
+
+def update_deletion_task(session_id: str, deletion_task):
+    """Update the deletion task reference for a session"""
+    if session_id in DB:
+        DB[session_id]["deletion_task"] = deletion_task
+
+def get_deletion_task(session_id: str):
+    """Get the deletion task for a session"""
+    session_data = DB.get(session_id, {})
+    return session_data.get("deletion_task")
 
 def verify_session_access(session_id: str, x_correlator: str = None) -> bool:
     """Verify if the provided x-correlator matches the one used to create the session"""

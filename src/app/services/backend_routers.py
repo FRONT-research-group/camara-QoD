@@ -2,11 +2,17 @@ from fastapi import HTTPException, Header, Depends, status
 from fastapi.responses import JSONResponse
 from typing import Optional
 import uuid
+import asyncio
 from app.utils.logger import get_app_logger
-from app.models.schemas import SessionInfo, QosStatus, SessionId, XCorrelator, ExtendSessionDuration
-from app.services.db import store_session_with_correlator, get_session_data, verify_session_access, in_memory_db
+from app.models.schemas import SessionInfo, QosStatus, SessionId, XCorrelator, ExtendSessionDuration, RetrieveSessionsInput,RetrieveSessionsInput,RetrieveSessionsOutput
+from app.services.db import store_session_with_correlator, get_session_data, verify_session_access, in_memory_db, get_deletion_task, update_deletion_task
 from app.helpers.error_responses import create_error_response
-from app.helpers.TF import post_tf_to_qos, delete_tf_to_qos
+from app.helpers.TF import post_tf_to_qos, delete_tf_to_qos, schedule_qos_deletion
+from app.helpers.callback import send_notification_to_sink
+from app.models.schemas import EventQosStatus, StatusInfo
+
+
+
 logger = get_app_logger()
 
 
@@ -25,7 +31,7 @@ def validate_x_correlator(x_correlator: Optional[str]) -> Optional[str]:
     return x_correlator
 
 async def create_session(
-    session_request,
+    session_request ,
     x_correlator,
     store = Depends(in_memory_db)
 ):
@@ -130,6 +136,13 @@ async def create_session(
 
         #NOTE testing the TF fucntions 
         await post_tf_to_qos(str(session_id.root))
+        
+        # Send callback notification for successful session creation with AVAILABLE status
+        await send_notification_to_sink(
+            session_id=str(session_id.root),
+            qos_status=EventQosStatus.AVAILABLE,
+            status_info=None
+        )
 
         return JSONResponse(
             status_code=status.HTTP_201_CREATED,
@@ -226,7 +239,8 @@ async def get_session_info(
 
 async def delete_session(
     session_id: str,
-    x_correlator: Optional[str] = None
+    x_correlator: Optional[str] = None,
+    store = Depends(in_memory_db)
 ) -> dict:
     """
     Delete QoS session by session ID with x-correlator validation
@@ -276,6 +290,13 @@ async def delete_session(
         # Delete from external QoS system first
         await delete_tf_to_qos(session_id)
         
+        # Send callback notification BEFORE deleting from database (so callback can retrieve session data)
+        await send_notification_to_sink(
+            session_id=session_id,
+            qos_status=EventQosStatus.UNAVAILABLE,
+            status_info=StatusInfo.DELETE_REQUESTED
+        )
+        
         # Delete the session from database
         store = in_memory_db()
         if session_id in store:
@@ -307,6 +328,7 @@ async def extend_duration(
     sessions_id: str,
     extend_request: ExtendSessionDuration,
     x_correlator: Optional[str] = None,
+    store = Depends(in_memory_db)
 ):
     """
     Extend the duration of an existing QoS session by its ID
@@ -398,6 +420,31 @@ async def extend_duration(
                 detail=f"Session with ID '{sessions_id}' not found in store"
             )
         
+        # Reschedule the automatic deletion: cancel old task and create new one with new total duration
+        session_data = get_session_data(sessions_id)
+        if session_data:
+            # Cancel the existing deletion task if it exists
+            existing_task = get_deletion_task(sessions_id)
+            if existing_task and not existing_task.done():
+                existing_task.cancel()
+                logger.info(f"Cancelled existing deletion task for session {sessions_id}")
+            
+            # Get required data for rescheduling
+            QoS_sub_id = session_data.get("QoS_sub_id")
+            x_correlator = session_data.get("x_correlator")
+            
+            if QoS_sub_id:
+                # Create new background task with the new total duration
+                new_task = asyncio.create_task(
+                    schedule_qos_deletion(x_correlator, QoS_sub_id, new_duration, sessions_id)
+                )
+                
+                # Store the new task reference
+                update_deletion_task(sessions_id, new_task)
+                logger.info(f"New deletion task scheduled for session {sessions_id} in {new_duration} seconds")
+            else:
+                logger.warning(f"No QoS subscription ID found for session {sessions_id}, cannot reschedule deletion")
+        
         return session_info
         
     except HTTPException:
@@ -408,4 +455,81 @@ async def extend_duration(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error occurred while extending session duration: {str(e)}"
+        )
+    
+async def retrieve_backend_sessions(
+    x_correlator: Optional[str] = None,
+    request_model: RetrieveSessionsInput = None,
+    store = Depends(in_memory_db)
+):
+    """
+    Retrieve QoS sessions for a given device
+    
+    Args:
+        x_correlator: Optional correlation ID header for validation
+        request_model: The request body containing device information to filter sessions
+        store: In-memory database dependency (can be replaced with real DB in future)
+        
+    Returns:
+        RetrieveSessionsOutput: List of sessions matching the device criteria (empty array if no sessions match)
+    """
+    try:
+        # Validate x-correlator if provided
+        validated_correlator = validate_x_correlator(x_correlator)
+        logger.info(f"Retrieving QoS sessions with correlator: {validated_correlator}")
+        
+        # Get all sessions from the database
+        retrieved_sessions = []
+        
+        # If no device specified, return all sessions (or empty array)
+        if not request_model or not request_model.device:
+            logger.info("No device specified, returning all sessions")
+            for session_id, session_data in store.items():
+                session_info = session_data.get("session")
+                if session_info:
+                    retrieved_sessions.append(session_info)
+        else:
+            # Filter sessions by device
+            device_filter = request_model.device
+            logger.info(f"Filtering sessions by device: {device_filter}")
+            
+            for session_id, session_data in store.items():
+                session_info = session_data.get("session")
+                if not session_info or not session_info.device:
+                    continue
+                
+                # Check if device matches any of the provided identifiers
+                match = False
+                
+                # Check phone number
+                if device_filter.phoneNumber and session_info.device.phoneNumber:
+                    if device_filter.phoneNumber.root == session_info.device.phoneNumber.root:
+                        match = True
+                
+                # Check network access identifier
+                if device_filter.networkAccessIdentifier and session_info.device.networkAccessIdentifier:
+                    if device_filter.networkAccessIdentifier.root == session_info.device.networkAccessIdentifier.root:
+                        match = True
+                
+                # Check IPv4 address
+                if device_filter.ipv4Address and session_info.device.ipv4Address:
+                    if device_filter.ipv4Address.root.publicAddress.root == session_info.device.ipv4Address.root.publicAddress.root:
+                        match = True
+                
+                # Check IPv6 address
+                if device_filter.ipv6Address and session_info.device.ipv6Address:
+                    if device_filter.ipv6Address.root == session_info.device.ipv6Address.root:
+                        match = True
+                
+                if match:
+                    retrieved_sessions.append(session_info)
+        
+        logger.info(f"Successfully retrieved {len(retrieved_sessions)} sessions")
+        return retrieved_sessions
+        
+    except Exception as e:
+        logger.error(f"Error retrieving sessions: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error occurred while retrieving sessions: {str(e)}"
         )

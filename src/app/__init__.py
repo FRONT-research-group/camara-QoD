@@ -17,4 +17,4 @@ _app = FastAPI(title=FASTAPI_TITLE,
               docs_url=FASTAPI_DOCS_URL,
               openapi_url=FASTAPI_OPEN_API_URL)
 
-_app.include_router(routers.router, prefix="/quality-on-demand/v1")
+_app.include_router(routers.router, prefix="/quality-on-demand/v1",tags=["QoS Sessions"])

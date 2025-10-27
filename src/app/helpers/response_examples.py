@@ -265,12 +265,11 @@ SUCCESS_RESPONSES = {
                     "sessionId": "qs15-h556-rt89-1298",
                     "device": None,
                     "applicationServer": {
-                        "ipv4Address": "192.168.1.100"
+                        "ipv4Address": "192.168.1.0/24"
                     },
+                    "sink": "https://application-server.com/notifications",
                     "qosProfile": "QOS_L",
                     "duration": 3600,
-                    "startedAt": "2025-10-14T10:30:00Z",
-                    "expiresAt": "2025-10-14T11:30:00Z",
                     "qosStatus": "AVAILABLE"
                 }
             }

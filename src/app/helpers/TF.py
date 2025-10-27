@@ -1,5 +1,7 @@
-from app.services.db import get_session_data, update_subscription_id, in_memory_db
+from app.services.db import get_session_data, update_subscription_id, in_memory_db, update_deletion_task, get_deletion_task
 from app.utils.logger import get_app_logger
+from app.helpers.callback import send_notification_to_sink
+from app.models.schemas import EventQosStatus, StatusInfo, QosStatus
 import json
 import httpx
 import asyncio
@@ -48,19 +50,26 @@ async def schedule_qos_deletion(scs_as_id, QoS_sub_id, duration, session_id):
         
             if response.status_code in [200, 204]:
                 logger.info(f"Successfully deleted QoS subscription {QoS_sub_id}")
-                
-                # Delete the session from database after successful QoS deletion
-                store = in_memory_db()
-                if session_id in store:
-                    del store[session_id]
-                    logger.info(f"Session {session_id} deleted from database after duration expiry")
-                else:
-                    logger.warning(f"Session {session_id} not found in database during scheduled deletion")
             else:
                 logger.warning(f"QoS deletion returned status {response.status_code}: {response.text}")
             
     except Exception as e:
         logger.error(f"Error deleting QoS subscription {QoS_sub_id}: {str(e)}")
+    
+    # Send callback notification about status change to UNAVAILABLE due to DURATION_EXPIRED
+    await send_notification_to_sink(
+        session_id=session_id,
+        qos_status=EventQosStatus.UNAVAILABLE,
+        status_info=StatusInfo.DURATION_EXPIRED
+    )
+    
+    # Delete the session from database after duration expiry
+    store = in_memory_db()
+    if session_id in store:
+        del store[session_id]
+        logger.info(f"Session {session_id} deleted from database after duration expiry")
+    else:
+        logger.warning(f"Session {session_id} not found in database during scheduled deletion")
 
 
 async def post_tf_to_qos(session_id):
@@ -192,6 +201,9 @@ async def post_tf_to_qos(session_id):
             logger.info(f"AsSessionWithQoS Response Status: {response.status_code}")
             
             if response.status_code == 201:
+
+
+
                 # Extract subscriptionId from response
                 try:
                     response_data = response.json()
@@ -212,9 +224,12 @@ async def post_tf_to_qos(session_id):
                         logger.info(f"Scheduling QoS deletion after {duration} seconds")
                         
                         # Create a background task to delete the subscription after duration
-                        asyncio.create_task(
+                        task = asyncio.create_task(
                             schedule_qos_deletion(x_correlator, QoS_sub_id, duration, session_id)
                         )
+                        
+                        # Store the task reference so it can be cancelled if duration is extended
+                        update_deletion_task(session_id, task)
                     else:
                         logger.warning("Could not extract QoS subscription ID from response")
                         
@@ -280,3 +295,7 @@ async def delete_tf_to_qos(session_id):
                 
     except Exception as e:
         logger.error(f"Error deleting QoS subscription: {str(e)}")
+
+
+
+

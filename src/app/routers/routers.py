@@ -5,9 +5,9 @@ import uuid
 from datetime import datetime, timezone
 from pydantic import ValidationError
 from app.utils.logger import get_app_logger
-from app.models.schemas import CreateSession, SessionInfo, QosStatus, SessionId, XCorrelator, ExtendSessionDuration
+from app.models.schemas import CreateSession, SessionInfo, QosStatus, SessionId, XCorrelator, ExtendSessionDuration,RetrieveSessionsOutput,RetrieveSessionsInput
 from app.services.db import in_memory_db
-from app.services.backend_routers import create_session, get_session_info, delete_session, extend_duration
+from app.services.backend_routers import create_session, get_session_info, delete_session, extend_duration, retrieve_backend_sessions
 from app.helpers.response_examples import (
     CREATE_SESSION_ERROR_RESPONSES, 
     GET_SESSION_ERROR_RESPONSES, 
@@ -33,13 +33,20 @@ router = APIRouter()
     Create QoS Session to manage latency/throughput priorities.
     
     **MINIMAL REQUIRED EXAMPLE:**
-    {
-      "applicationServer": {
-        "ipv4Address": "192.168.1.100"
-      },
-      "qosProfile": "QOS_L",
-      "duration": 3600
-    }
+        {
+        "device": {
+            "ipv4Address": {
+            "publicAddress": "203.0.113.0",
+            "publicPort": 5060
+            }
+        },
+        "applicationServer": {
+            "ipv4Address": "192.168.1.100"
+        },
+        "qosProfile": "qod_2",
+        "duration": 3600,
+        "sink": "https://endpoint.example.com/sink"
+        }
     
     Required fields:
     - applicationServer: Must have at least one IP address (IPv4 or IPv6)
@@ -101,9 +108,10 @@ async def get_session(
 async def delete_session_endpoint(
     session_id: str, 
     x_correlator: Optional[str] = Header(None, description="Correlation id for the different services"),
+    store: dict = Depends(in_memory_db)
 ):
     """Delete a specific QoS session by ID with x-correlator validation"""
-    return await delete_session(session_id, x_correlator)
+    return await delete_session(session_id, x_correlator, store)
 
 
 @router.post(
@@ -122,4 +130,18 @@ async def extend_session_duration(
     store: dict = Depends(in_memory_db)
 ):
     """Extend the duration of an existing QoS session by its ID"""
-    return await extend_duration(sessions_id, extend_request, x_correlator)
+    return await extend_duration(sessions_id, extend_request, x_correlator, store)
+
+@router.post("/retrieve_sessions",
+             response_model=RetrieveSessionsOutput,
+             summary ="Get QoS session information for a device",
+             description="Get QoS session information for a device",
+             status_code=status.HTTP_200_OK,
+             responses={**COMMON_ERROR_RESPONSES}
+)
+async def retrieve_sessions(
+    request_model: RetrieveSessionsInput,
+    x_correlator: Optional[str] = Header(None, description="Correlation id for the different services"),
+    store: dict = Depends(in_memory_db)
+):
+    return await retrieve_backend_sessions(x_correlator, request_model, store)
