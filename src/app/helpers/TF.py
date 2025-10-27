@@ -5,6 +5,7 @@ from app.models.schemas import EventQosStatus, StatusInfo, QosStatus
 import json
 import httpx
 import asyncio
+from datetime import datetime, timezone
 from app.utils.config import ASSESSIONWITHQOS_URL
 """
 Transformation Functions for CAMARA QoD API to AsSessionWithQoS/NEF API.
@@ -26,7 +27,7 @@ async def schedule_qos_deletion(scs_as_id, QoS_sub_id, duration, session_id):
         duration: Time in seconds before deletion
         session_id: The session ID to delete from database
     """
-    logger.info(f"Scheduled QoS deletion for subscription {QoS_sub_id} (session {session_id}) in {duration} seconds")
+    logger.debug(f"Scheduled QoS deletion for QoS NEF ID {QoS_sub_id} (QoD session {session_id}) in {duration} seconds")
     
     # Wait for the duration asynchronously
     await asyncio.sleep(duration)
@@ -63,11 +64,19 @@ async def schedule_qos_deletion(scs_as_id, QoS_sub_id, duration, session_id):
         status_info=StatusInfo.DURATION_EXPIRED
     )
     
+    # Update session status to UNAVAILABLE with expiresAt as current time
+    session_data = get_session_data(session_id)
+    if session_data:
+        session_info = session_data.get("session")
+        if session_info:
+            session_info.expiresAt = datetime.now(timezone.utc)
+            session_info.statusInfo = StatusInfo.DURATION_EXPIRED
+    
     # Delete the session from database after duration expiry
     store = in_memory_db()
     if session_id in store:
         del store[session_id]
-        logger.info(f"Session {session_id} deleted from database after duration expiry")
+        logger.debug(f"Session {session_id} deleted from database after duration expiry")
     else:
         logger.warning(f"Session {session_id} not found in database during scheduled deletion")
 
@@ -182,7 +191,7 @@ async def post_tf_to_qos(session_id):
     qos_endpoint = f"{ASSESSIONWITHQOS_URL}/{x_correlator}/subscriptions"
     
     try:
-        logger.info(f"Sending POST to QoS system: {qos_endpoint}")
+        logger.info(f"Sending POST to AsSessionWithQoS: {qos_endpoint}")
         
         headers = {
             "Content-Type": "application/json"
@@ -198,30 +207,27 @@ async def post_tf_to_qos(session_id):
                 timeout=10.0
             )
         
-            logger.info(f"AsSessionWithQoS Response Status: {response.status_code}")
+            logger.debug(f"AsSessionWithQoS Response Status: {response.status_code}")
             
             if response.status_code == 201:
 
 
-
-                # Extract subscriptionId from response
                 try:
                     response_data = response.json()
                     QoS_sub_id = response_data.get("link", "").split("/")[-1]
                     
                     if not QoS_sub_id:
-                        # Try to get subscriptionId directly from response
                         QoS_sub_id = response_data.get("subscriptionId")
                     
                     if QoS_sub_id:
-                        logger.info(f"QoS Subscription ID: {QoS_sub_id}")
+                        logger.debug(f"QoS Subscription ID: {QoS_sub_id}")
                         
                         # Store the subscription ID in the database
                         update_subscription_id(session_id, QoS_sub_id)
                         
                         # Get duration and schedule delete
                         duration = session_info.duration
-                        logger.info(f"Scheduling QoS deletion after {duration} seconds")
+                        logger.debug(f"Scheduling QoS deletion after {duration} seconds")
                         
                         # Create a background task to delete the subscription after duration
                         task = asyncio.create_task(
@@ -289,7 +295,7 @@ async def delete_tf_to_qos(session_id):
             )
         
             if response.status_code in [200, 204]:
-                logger.info(f"Successfully deleted QoS subscription {QoS_sub_id}")
+                logger.info(f"Successfully deleted QoS subscription {QoS_sub_id} from NEF")
             else:
                 logger.warning(f"QoS/NEF deletion returned status {response.status_code}: {response.text}")
                 

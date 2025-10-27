@@ -1,4 +1,5 @@
 import logging
+from app.utils.config import LOG_LEVEL
 
 class ColoredFormatter(logging.Formatter):
     # ANSI escape codes for colors
@@ -17,14 +18,16 @@ class ColoredFormatter(logging.Formatter):
             record.levelname = f"{self.COLORS[levelname]}{levelname}{self.RESET}"
         return super().format(record)
 
+
 def get_app_logger():
     """
     Set up and return the application logger with debug support and colored output.
     """
     logger = logging.getLogger('nef_logger')
-    
     if not logger.hasHandlers():
-        logger.setLevel(logging.DEBUG)  # Allow all log levels from DEBUG and above
+        # Set log level from config
+        level = getattr(logging, LOG_LEVEL.upper(), logging.INFO)
+        logger.setLevel(level)
 
         # Define log format
         formatter = ColoredFormatter(
@@ -34,8 +37,7 @@ def get_app_logger():
 
         # Console stream handler for DEBUG and above
         stream_handler = logging.StreamHandler()
-        stream_handler.setLevel(logging.DEBUG)  # Show debug logs in console too
+        stream_handler.setLevel(level)
         stream_handler.setFormatter(formatter)
         logger.addHandler(stream_handler)
-
     return logger

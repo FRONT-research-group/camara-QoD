@@ -30,32 +30,27 @@ async def send_notification_to_sink(
         x_correlator: Optional correlation ID for tracking
     """
     
-    # Get session data from database
     session_data = get_session_data(session_id)
     
     if not session_data:
         logger.warning(f"Session {session_id} not found in database, cannot send notification")
         return
     
-    # Extract session info
     session_info = session_data.get("session")
     if not session_info:
         logger.warning(f"No session info found for session {session_id}")
         return
     
-    # Get sink URL
     if not session_info.sink:
         logger.info(f"No sink URL configured for session {session_id}, skipping notification")
         return
     
     sink_url = str(session_info.sink)
     
-    # Use x_correlator from session data if not provided
     if not x_correlator:
         x_correlator = session_data.get("x_correlator")
     
     try:
-        # Create the CloudEvent notification
         cloud_event = EventQosStatusChanged(
             id=str(uuid.uuid4()),
             source=f"https://qod-api.example.com/sessions/{session_id}",
@@ -70,7 +65,6 @@ async def send_notification_to_sink(
             )
         )
         
-        # Prepare headers
         headers = {
             "Content-Type": "application/cloudevents+json",
             "ce-id": cloud_event.id,
@@ -82,7 +76,6 @@ async def send_notification_to_sink(
         if x_correlator:
             headers["x-correlator"] = x_correlator
         
-        # Send the notification
         logger.info(f"Sending QoS status notification to {sink_url} for session {session_id}")
         logger.debug(f"CloudEvent: {cloud_event.model_dump_json(indent=2)}")
         

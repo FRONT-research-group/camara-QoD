@@ -1,4 +1,8 @@
 
+from app.utils.logger import get_app_logger
+import json
+logger = get_app_logger()
+
 
 DB = {}
 
@@ -13,6 +17,12 @@ def store_session_with_correlator(session_id: str, session_info, x_correlator: s
         "QoS_sub_id": QoS_sub_id,
         "deletion_task": deletion_task
     }
+    try:
+        # Convert session_info to dict if it has model_dump (Pydantic)
+        db_json = {k: {**v, "session": v["session"].model_dump() if hasattr(v["session"], "model_dump") else v["session"]} for k, v in DB.items()}
+        logger.debug(f"DB after store_session_with_correlator: {json.dumps(db_json, indent=2, default=str)}")
+    except Exception:
+        logger.debug(f"DB after store_session_with_correlator: {DB}")
 
 def get_session_data(session_id: str):
     """Get session data including x-correlator"""
@@ -27,6 +37,11 @@ def update_deletion_task(session_id: str, deletion_task):
     """Update the deletion task reference for a session"""
     if session_id in DB:
         DB[session_id]["deletion_task"] = deletion_task
+        try:
+            db_json = {k: {**v, "session": v["session"].model_dump() if hasattr(v["session"], "model_dump") else v["session"]} for k, v in DB.items()}
+            logger.debug(f"DB after update_deletion_task: {json.dumps(db_json, indent=2, default=str)}")
+        except Exception:
+            logger.debug(f"DB after update_deletion_task: {DB}")
 
 def get_deletion_task(session_id: str):
     """Get the deletion task for a session"""

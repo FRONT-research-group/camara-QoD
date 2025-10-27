@@ -4,10 +4,13 @@
 '''
 from app.utils.logger import get_app_logger
 from app import _app
+from app.utils.config import LOG_LEVEL,ASSESSIONWITHQOS_URL
 
 logger = get_app_logger()
 
 logger.info('*** Quality-on-Demand **')
+logger.info(f"QoS_NEF_URL: {ASSESSIONWITHQOS_URL}")
+logger.info(f"Log Level set to: {LOG_LEVEL}")
 
 
 

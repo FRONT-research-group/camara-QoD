@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from typing import Optional
 import uuid
 import asyncio
+from datetime import datetime, timezone, timedelta
 from app.utils.logger import get_app_logger
 from app.models.schemas import SessionInfo, QosStatus, SessionId, XCorrelator, ExtendSessionDuration, RetrieveSessionsInput,RetrieveSessionsInput,RetrieveSessionsOutput
 from app.services.db import store_session_with_correlator, get_session_data, verify_session_access, in_memory_db, get_deletion_task, update_deletion_task
@@ -52,7 +53,15 @@ async def create_session(
     try:
         # Validate x-correlator if provided
         validated_correlator = validate_x_correlator(x_correlator)
-        logger.info(f"Creating new QoS session with correlator: {validated_correlator}")
+        logger.debug(f"Creating new QoS session with correlator: {validated_correlator}")
+        logger.debug(f"Session request payload: {session_request}")
+        from app.services.db import DB
+        import json
+        try:
+            db_json = {k: {**v, "session": v["session"].model_dump() if hasattr(v["session"], "model_dump") else v["session"]} for k, v in DB.items()}
+            logger.debug(f"DB state after request: {json.dumps(db_json, indent=2, default=str)}")
+        except Exception:
+            logger.debug(f"DB state after request: {DB}")
         
         # Validate required fields
         # ApplicationServer validation (must have at least one IP address)
@@ -79,11 +88,9 @@ async def create_session(
                 "The requested duration is out of the allowed range for the specific QoS profile"
             )
         
-        # QosProfile validation (handled by Pydantic model)
-        logger.info(f"Requested QoS profile: {session_request.qosProfile.root}")
+        logger.debug(f"Requested QoS profile: {session_request.qosProfile.root}")
         
-        # Duration validation (handled by Pydantic model - minimum 1)
-        logger.info(f"Requested duration: {session_request.duration} seconds")
+        logger.debug(f"Requested duration: {session_request.duration} seconds")
         
         # Check for existing sessions with same device (session conflict)
         if session_request.device:
@@ -104,13 +111,12 @@ async def create_session(
                     "Conflict with an existing session for the same device."
                 )
         
-        # Generate a unique session ID
         session_uuid = uuid.uuid4()
         session_id = SessionId.model_validate(session_uuid)
         
-
+        started_at = datetime.now(timezone.utc)
+        expires_at = started_at + timedelta(seconds=session_request.duration)
         
-        # Create session info response
         session_info = SessionInfo(
             sessionId=session_id,
             device=session_request.device,
@@ -122,10 +128,11 @@ async def create_session(
             sinkCredential=session_request.sinkCredential,
             duration=session_request.duration,
             qosStatus=QosStatus.AVAILABLE,
-            statusInfo=None
+            statusInfo=None,
+            startedAt=started_at,
+            expiresAt=expires_at
         )
         
-        # Store the session with its x-correlator
         store_session_with_correlator(str(session_id.root), session_info, validated_correlator)
         logger.info(f"Session created with ID: {session_id.root} and correlator: {validated_correlator}")
         
@@ -134,7 +141,8 @@ async def create_session(
         if validated_correlator:
             headers["x-correlator"] = validated_correlator
 
-        #NOTE testing the TF fucntions 
+
+        #NOTE Calling the TF function to create the session in AsSessionWithQoS
         await post_tf_to_qos(str(session_id.root))
         
         # Send callback notification for successful session creation with AVAILABLE status
@@ -152,7 +160,6 @@ async def create_session(
         
 
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
     except Exception as e:
         logger.error(f"Error creating session: {str(e)}")
@@ -185,6 +192,7 @@ async def get_session_info(
         # Validate x-correlator if provided
         validated_correlator = validate_x_correlator(x_correlator)
         logger.info(f"Retrieving QoS session {session_id} with correlator: {validated_correlator}")
+        logger.debug(f"Session info request for session_id={session_id}, correlator={validated_correlator}")
         
         # Get session data (includes correlator info)
         session_data = get_session_data(session_id)
@@ -211,10 +219,9 @@ async def get_session_info(
             else:
                 logger.info(f"x-correlator verification successful for session {session_id}")
         
-        # Get the actual session info
         session_info = session_data.get("session")
         
-        logger.info(f"Session {session_id} retrieved successfully")
+        logger.debug(f"Session {session_id} retrieved successfully")
         
         # Validate session data integrity
         if not isinstance(session_info, SessionInfo):
@@ -227,7 +234,6 @@ async def get_session_info(
         return session_info
         
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
     except Exception as e:
         logger.error(f"Error retrieving session {session_id}: {str(e)}")
@@ -259,6 +265,14 @@ async def delete_session(
         # Validate x-correlator if provided
         validated_correlator = validate_x_correlator(x_correlator)
         logger.info(f"Deleting QoS session {session_id} with correlator: {validated_correlator}")
+        from app.services.db import DB
+        import json
+        try:
+            db_json = {k: {**v, "session": v["session"].model_dump() if hasattr(v["session"], "model_dump") else v["session"]} for k, v in DB.items()}
+            logger.debug(f"DB state after request: {json.dumps(db_json, indent=2, default=str)}")
+        except Exception:
+            logger.debug(f"DB state after request: {DB}")
+
         
         # Get session data (includes correlator info)
         session_data = get_session_data(session_id)
@@ -283,11 +297,15 @@ async def delete_session(
             else:
                 logger.info(f"x-correlator verification successful for session {session_id} deletion")
         
-        # Get the session info before deletion
-        # session_info = session_data.get("session")
+        session_info = session_data.get("session")
         stored_correlator = session_data.get("x_correlator")
         
-        # Delete from external QoS system first
+        # Update session status to UNAVAILABLE with DELETE_REQUESTED
+        if session_info:
+            session_info.qosStatus = QosStatus.UNAVAILABLE
+            session_info.statusInfo = StatusInfo.DELETE_REQUESTED
+        
+        #NOTE calling the TF function to delete the session in AsSessionWithQoS
         await delete_tf_to_qos(session_id)
         
         # Send callback notification BEFORE deleting from database (so callback can retrieve session data)
@@ -309,13 +327,11 @@ async def delete_session(
                 detail=f"Session with ID '{session_id}' not found in store"
             )
         
-        # Return confirmation with session details
         return {
             "message": f"Session {session_id} deleted successfully",
         }
         
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
     except Exception as e:
         logger.error(f"Error deleting session {session_id}: {str(e)}")
@@ -345,6 +361,13 @@ async def extend_duration(
         # Validate x-correlator if provided
         validated_correlator = validate_x_correlator(x_correlator)
         logger.info(f"Extending duration for QoS session {sessions_id} with correlator: {validated_correlator}")
+        from app.services.db import DB
+        import json
+        try:
+            db_json = {k: {**v, "session": v["session"].model_dump() if hasattr(v["session"], "model_dump") else v["session"]} for k, v in DB.items()}
+            logger.debug(f"DB state after request: {json.dumps(db_json, indent=2, default=str)}")
+        except Exception:
+            logger.debug(f"DB state after request: {DB}")
         
         # Get session data (includes correlator info)
         session_data = get_session_data(sessions_id)
@@ -389,14 +412,11 @@ async def extend_duration(
                 f"Session must be in AVAILABLE status to extend duration. Current status: {session_info.qosStatus}"
             )
         
-        # Get the additional duration from the request
         additional_duration = extend_request.requestedAdditionalDuration
         
-        # Calculate new total duration
         new_duration = session_info.duration + additional_duration
         
-        # Optional: Validate maximum duration (e.g., 86400 seconds = 24 hours)
-        max_duration = 86400
+        max_duration = 3600
         if new_duration > max_duration:
             logger.warning(f"Requested total duration {new_duration} exceeds maximum {max_duration}")
             raise create_error_response(
@@ -405,14 +425,17 @@ async def extend_duration(
                 f"The extended duration would exceed the maximum allowed duration of {max_duration} seconds"
             )
         
-        # Update the session duration
         session_info.duration = new_duration
+        if session_info.startedAt:
+            # Recalculate expiresAt based on startedAt + new total duration
+            session_info.expiresAt = session_info.startedAt + timedelta(seconds=new_duration)
+            logger.debug(f"Updated expiresAt to {session_info.expiresAt.isoformat()}")
         
         # Update the session in the database
         store = in_memory_db()
         if sessions_id in store:
             store[sessions_id]["session"] = session_info
-            logger.info(f"Session {sessions_id} duration extended by {additional_duration} seconds to {new_duration} seconds total")
+            logger.debug(f"Session {sessions_id} duration extended by {additional_duration} seconds to {new_duration} seconds total")
         else:
             logger.error(f"Session {sessions_id} not found in store during duration extension")
             raise HTTPException(
@@ -423,13 +446,11 @@ async def extend_duration(
         # Reschedule the automatic deletion: cancel old task and create new one with new total duration
         session_data = get_session_data(sessions_id)
         if session_data:
-            # Cancel the existing deletion task if it exists
             existing_task = get_deletion_task(sessions_id)
             if existing_task and not existing_task.done():
                 existing_task.cancel()
-                logger.info(f"Cancelled existing deletion task for session {sessions_id}")
+                logger.debug(f"Cancelled existing deletion task for session {sessions_id}")
             
-            # Get required data for rescheduling
             QoS_sub_id = session_data.get("QoS_sub_id")
             x_correlator = session_data.get("x_correlator")
             
@@ -439,16 +460,14 @@ async def extend_duration(
                     schedule_qos_deletion(x_correlator, QoS_sub_id, new_duration, sessions_id)
                 )
                 
-                # Store the new task reference
                 update_deletion_task(sessions_id, new_task)
-                logger.info(f"New deletion task scheduled for session {sessions_id} in {new_duration} seconds")
+                logger.debug(f"New deletion task scheduled for session {sessions_id} in {new_duration} seconds")
             else:
                 logger.warning(f"No QoS subscription ID found for session {sessions_id}, cannot reschedule deletion")
         
         return session_info
         
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
     except Exception as e:
         logger.error(f"Error extending duration for session {sessions_id}: {str(e)}")
@@ -483,13 +502,12 @@ async def retrieve_backend_sessions(
         
         # If no device specified, return all sessions (or empty array)
         if not request_model or not request_model.device:
-            logger.info("No device specified, returning all sessions")
+            logger.debug("No device specified, returning all sessions")
             for session_id, session_data in store.items():
                 session_info = session_data.get("session")
                 if session_info:
                     retrieved_sessions.append(session_info)
         else:
-            # Filter sessions by device
             device_filter = request_model.device
             logger.info(f"Filtering sessions by device: {device_filter}")
             

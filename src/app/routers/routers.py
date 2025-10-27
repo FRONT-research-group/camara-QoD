@@ -37,6 +37,7 @@ router = APIRouter()
         "device": {
             "ipv4Address": {
             "publicAddress": "203.0.113.0",
+            "privateAddress": "192.168.1.10",
             "publicPort": 5060
             }
         },
@@ -44,10 +45,8 @@ router = APIRouter()
             "ipv4Address": "192.168.1.100"
         },
         "qosProfile": "qod_2",
-        "duration": 3600,
-        "sink": "https://endpoint.example.com/sink"
+        "duration": 3600
         }
-    
     Required fields:
     - applicationServer: Must have at least one IP address (IPv4 or IPv6)
     - qosProfile: QoS profile name (e.g., QOS_L, QOS_S, QOS_M, QOS_E, voice)
