@@ -40,4 +40,6 @@ def get_app_logger():
         stream_handler.setLevel(level)
         stream_handler.setFormatter(formatter)
         logger.addHandler(stream_handler)
+        
+        logger.propagate = False
     return logger

@@ -1,4 +1,4 @@
-FROM python:3.10-slim
+FROM python:3.12.10-bullseye
 
 WORKDIR /app
 
@@ -11,7 +11,7 @@ COPY src ./src
 
 EXPOSE 8001
 
-ENV ASSESSIONWITHQOS_URL="http://10.220.2.73:8585/3gpp-as-session-with-qos/v1"
+ENV ASSESSIONWITHQOS_URL="http://10.220.2.43:8585/3gpp-as-session-with-qos/v1"
 ENV LOG_LEVEL="DEBUG"
 
 CMD ["python3", "src/main.py"]

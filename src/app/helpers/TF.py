@@ -7,6 +7,7 @@ import httpx
 import asyncio
 from datetime import datetime, timezone
 from app.utils.config import ASSESSIONWITHQOS_URL
+from app.invoker_onboarding.invoker_capif_connector import onboard_invoker
 """
 Transformation Functions for CAMARA QoD API to AsSessionWithQoS/NEF API.
 
@@ -29,6 +30,8 @@ async def schedule_qos_deletion(scs_as_id, QoS_sub_id, duration, session_id):
     """
     logger.debug(f"Scheduled QoS deletion for QoS NEF ID {QoS_sub_id} (QoD session {session_id}) in {duration} seconds")
     
+    jwt_token = onboard_invoker()
+    
     # Wait for the duration asynchronously
     await asyncio.sleep(duration)
     
@@ -38,7 +41,9 @@ async def schedule_qos_deletion(scs_as_id, QoS_sub_id, duration, session_id):
     try:
         logger.info(f"Sending scheduled DELETE to NEF/QoS: {delete_endpoint}")
         
-        headers = {}
+        headers = {
+            "Authorization": "Bearer " + jwt_token
+        }
         if scs_as_id:
             headers["x-correlator"] = scs_as_id
         
@@ -190,11 +195,15 @@ async def post_tf_to_qos(session_id):
     # Send the payload to the QoS system
     qos_endpoint = f"{ASSESSIONWITHQOS_URL}/{x_correlator}/subscriptions"
     
+    jwt_token = onboard_invoker()
+    
     try:
+        
         logger.info(f"Sending POST to AsSessionWithQoS: {qos_endpoint}")
         
         headers = {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + jwt_token
         }
         if x_correlator:
             headers["x-correlator"] = x_correlator
@@ -280,10 +289,14 @@ async def delete_tf_to_qos(session_id):
     # Send delete request to external QoS system
     delete_endpoint = f"{ASSESSIONWITHQOS_URL}/{x_correlator}/subscriptions/{QoS_sub_id}"
     
+    jwt_token = onboard_invoker()
+    
     try:
         logger.info(f"Sending DELETE to NEF: {delete_endpoint}")
         
-        headers = {}
+        headers = {
+            "Authorization": "Bearer " + jwt_token
+        }
         if x_correlator:
             headers["x-correlator"] = x_correlator
         
