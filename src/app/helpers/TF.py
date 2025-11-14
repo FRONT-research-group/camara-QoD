@@ -93,7 +93,7 @@ async def post_tf_to_qos(session_id):
     Args:
         session_id: The CAMARA session ID to transform and send
     Returns:
-        The JSON payload sent to AsSessionWithQoS
+        Tuple of (payload, status_code) - The JSON payload sent and HTTP status code received
     """
    
 
@@ -167,8 +167,8 @@ async def post_tf_to_qos(session_id):
         # Format: "permit out ip from <device_ip> to <app_server_ip>"
         # Format: "permit in ip from <app_server_ip> to <device_ip>"
         flow_descriptions = [
-            f"permit out ip from {device_ip} to {app_server_ip}",
-            f"permit in ip from {app_server_ip} to {device_ip}"
+            f"permit in ip from {device_ip} to {app_server_ip}",
+            f"permit out ip from {app_server_ip} to {device_ip}"
         ]
     
     # Construct the JSON payload
@@ -189,6 +189,7 @@ async def post_tf_to_qos(session_id):
 
     # Send the payload to the QoS system
     qos_endpoint = f"{ASSESSIONWITHQOS_URL}/{x_correlator}/subscriptions"
+    status_code = None
     
     try:
         logger.info(f"Sending POST to AsSessionWithQoS: {qos_endpoint}")
@@ -207,7 +208,8 @@ async def post_tf_to_qos(session_id):
                 timeout=10.0
             )
         
-            logger.debug(f"AsSessionWithQoS Response Status: {response.status_code}")
+            status_code = response.status_code
+            logger.debug(f"AsSessionWithQoS Response Status: {status_code}")
             
             if response.status_code == 201:
 
@@ -247,8 +249,9 @@ async def post_tf_to_qos(session_id):
             
     except Exception as e:
         logger.error(f"Error sending QoS payload: {str(e)}")
+        status_code = 500  # Set error status code for exception cases
     
-    return qos_payload
+    return qos_payload, status_code
 
 async def delete_tf_to_qos(session_id):
     """

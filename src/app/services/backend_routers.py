@@ -143,14 +143,34 @@ async def create_session(
 
 
         #NOTE Calling the TF function to create the session in AsSessionWithQoS
-        await post_tf_to_qos(str(session_id.root))
+        _, qos_status_code = await post_tf_to_qos(str(session_id.root))
         
-        # Send callback notification for successful session creation with AVAILABLE status
-        await send_notification_to_sink(
-            session_id=str(session_id.root),
-            qos_status=EventQosStatus.AVAILABLE,
-            status_info=None
-        )
+        # Check if QoS system returned 404 or other error
+        if qos_status_code and qos_status_code == 404:
+            logger.warning(f"QoS system returned 404 for session {session_id.root}, sending NETWORK_TERMINATED notification")
+            
+            # Send callback notification with UNAVAILABLE status and NETWORK_TERMINATED info
+            await send_notification_to_sink(
+                session_id=str(session_id.root),
+                qos_status=EventQosStatus.UNAVAILABLE,
+                status_info=StatusInfo.NETWORK_TERMINATED
+            )
+        elif qos_status_code and qos_status_code >= 400:
+            logger.error(f"QoS system returned error {qos_status_code} for session {session_id.root}")
+            
+            # Send callback notification with UNAVAILABLE status and NETWORK_TERMINATED info
+            await send_notification_to_sink(
+                session_id=str(session_id.root),
+                qos_status=EventQosStatus.UNAVAILABLE,
+                status_info=StatusInfo.NETWORK_TERMINATED
+            )
+        else:
+            # Send callback notification for successful session creation with AVAILABLE status
+            await send_notification_to_sink(
+                session_id=str(session_id.root),
+                qos_status=EventQosStatus.AVAILABLE,
+                status_info=None
+            )
 
         return JSONResponse(
             status_code=status.HTTP_201_CREATED,
