@@ -23,10 +23,10 @@ Pre-defined quality levels that specify latency, throughput, or priority require
 
 The following QoS profiles are currently supported:
 
-- **QOS_E**: 1 Mbps download/upload bandwidth for video applications
-- **QOS_S**: 4 Mbps download/upload bandwidth for video applications  
-- **QOS_M**: 8 Mbps download/upload bandwidth for video applications
-- **QOS_L**: 20 Mbps download/upload bandwidth for audio applications
+- **QOS_E**: Up to 1 Mbps download/upload bandwidth for video applications
+- **QOS_S**: Up to 4 Mbps download/upload bandwidth for video applications  
+- **QOS_M**: Up to 8 Mbps download/upload bandwidth for video applications
+- **QOS_L**: Up to 20 Mbps download/upload bandwidth for audio applications
 
 
 
