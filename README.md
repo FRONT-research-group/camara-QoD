@@ -38,7 +38,7 @@ At least one identifier for the user device:
 - **Network Access Identifier** (future use)
 
 ### Application Server
-IPv4 and/or IPv6 address of the backend server. Supports CIDR notation (e.g., `192.168.1.0/24`) and wildcard (`0.0.0.0/0` → `any`).
+IPv4 and/or IPv6 address of the backend server. Supports CIDR notation (e.g., `192.168.1.0/24`).
 
 
 ### Duration
@@ -127,7 +127,7 @@ docker run -d \
 ## Notes
 
 - **Tested with**: Amari RAN and Open5GS core network
-- **Related Project**: [NEF-QoS](https://github.com/FRONT-research-group/NEF-QoS) - AsSessionWithQoS/NEF implementation
+- **Related Project**: Tested with [NEF-QoS](https://github.com/FRONT-research-group/NEF-QoS) - AsSessionWithQoS/NEF implementation
 - **CAMARA QoD Official Swagger**: [API Documentation](https://camaraproject.github.io/swagger-ui/?url=https://raw.githubusercontent.com/camaraproject/QualityOnDemand/r3.2/code/API_definitions/quality-on-demand.yaml#/QoS%20Sessions/deleteSession)
 
 ---
