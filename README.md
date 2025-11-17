@@ -112,12 +112,20 @@ Access the API documentation at: **http://localhost:8002/docs**
 
 **Option 2: Run with Docker**
 
+Build the Docker image:
+
+```bash
+docker build -t camara-qod .
+```
+
+Run the container:
+
 ```bash
 docker run -d \
-  -e ASSESSIONWITHQOS_URL="http://nef-qos:8001/3gpp-as-session-with-qos/v1" \
-  -e LOG_LEVEL="INFO" \
-  -p 8002:8002 \
-  ghcr.io/front-research-group/camara-qod
+    -e ASSESSIONWITHQOS_URL="http://nef-qos:8001/3gpp-as-session-with-qos/v1" \
+    -e LOG_LEVEL="INFO" \
+    -p 8002:8002 \
+    camara-qod
 ```
 
 **Note:** Replace `nef-qos:8001` with your actual NEF service host and port.
