@@ -82,29 +82,30 @@ async def schedule_qos_deletion(scs_as_id, QoS_sub_id, duration, session_id):
 
 
 async def post_tf_to_qos(session_id):
-
-
-     #NOTE : Fix in flow descriptions to include ports if provided, first i need to check documentation of AsSessionWithQoS api flow descriptions fields
-
-
     """
-    POST request: Transformation function from CAMARA payload --> AsSessionWithQoS/NEF payload
-
+    Transform CAMARA QoD session to AsSessionWithQoS/NEF payload and send POST request.
+    
+    Flow:
+    1. Retrieve session data from database
+    2. Extract device/application server IPs and ports
+    3. Build flow descriptions for QoS rules
+    4. Send POST request to AsSessionWithQoS/NEF
+    5. Schedule automatic deletion after session duration
+    
     Args:
         session_id: The CAMARA session ID to transform and send
+        
     Returns:
         Tuple of (payload, status_code) - The JSON payload sent and HTTP status code received
     """
-   
-
-    logger.debug(f"Sending camara_session_id {session_id} to AsSessionWithQoS")
-    session_data = get_session_data(session_id)
+    logger.debug(f"Transforming CAMARA session {session_id} to AsSessionWithQoS payload")
     
+    # Step 1: Retrieve session data
+    session_data = get_session_data(session_id)
     if not session_data:
         logger.error(f"Session {session_id} not found in database")
         return
     
-    # Extract the actual session info from the stored data
     session_info = session_data.get("session")
     x_correlator = session_data.get("x_correlator")
     
@@ -112,66 +113,83 @@ async def post_tf_to_qos(session_id):
         logger.error(f"No session info found for session {session_id}")
         return
     
-    # Extract required fields
     qos_profile = session_info.qosProfile.root if session_info.qosProfile else None
     
-    # Get device IP (prefer ipv4, fallback to ipv6)
     device_ip = None
+    device_public_port = None
+    
     if session_info.device:
         if session_info.device.ipv4Address:
-            # Get publicAddress from DeviceIpv4Addr
             device_ip = str(session_info.device.ipv4Address.root.publicAddress.root)
+            # Check for publicPort in device.ipv4Address
+            if hasattr(session_info.device.ipv4Address.root, 'publicPort') and session_info.device.ipv4Address.root.publicPort:
+                device_public_port = session_info.device.ipv4Address.root.publicPort.root
         elif session_info.device.ipv6Address:
             device_ip = str(session_info.device.ipv6Address.root)
     
-    # Get application server IP (prefer ipv4, fallback to ipv6)
+    #Extract application server IP
     app_server_ip = None
+    
     if session_info.applicationServer:
         if session_info.applicationServer.ipv4Address:
             app_server_ip = str(session_info.applicationServer.ipv4Address.root)
+            # Convert 0.0.0.0/0 to "any"
+            if app_server_ip in ["0.0.0.0/0"]:
+                app_server_ip = "any"
         elif session_info.applicationServer.ipv6Address:
             app_server_ip = str(session_info.applicationServer.ipv6Address.root)
+            # Convert ::/0 to "any"
+            if app_server_ip in ["::/0", "::"]:
+                app_server_ip = "any"
     
-    # Get ports if they exist
+    # Extract device ports (prioritize publicPort, then devicePorts)
     device_ports_str = ""
-    app_server_ports_str = ""
     
-    # Process device ports
-    if session_info.devicePorts:
+    if device_public_port:
+        device_ports_str = f" {device_public_port}"
+    elif session_info.devicePorts:
         if session_info.devicePorts.ports:
-            # Single ports: convert list to comma-separated string
             ports_list = [str(p.root) for p in session_info.devicePorts.ports]
-            device_ports_str = f" {','.join(ports_list)}" if len(ports_list) == 1 else f" {','.join(ports_list)}"
+            device_ports_str = f" {','.join(ports_list)}"
         elif session_info.devicePorts.ranges:
-            # Port ranges
             ranges_list = [f"{r.from_.root}-{r.to.root}" for r in session_info.devicePorts.ranges]
             device_ports_str = f" {','.join(ranges_list)}"
     
-    # Process application server ports
+    #Extract application server ports
+    app_server_ports_str = ""
+    
     if session_info.applicationServerPorts:
         if session_info.applicationServerPorts.ports:
-            # Single ports
             ports_list = [str(p.root) for p in session_info.applicationServerPorts.ports]
-            app_server_ports_str = f" {','.join(ports_list)}" if len(ports_list) == 1 else f" {','.join(ports_list)}"
+            app_server_ports_str = f" {','.join(ports_list)}"
         elif session_info.applicationServerPorts.ranges:
-            # Port ranges
             ranges_list = [f"{r.from_.root}-{r.to.root}" for r in session_info.applicationServerPorts.ranges]
             app_server_ports_str = f" {','.join(ranges_list)}"
     
-    # Get notification destination (sink)
+    #Build flow descriptions
+    flow_descriptions = []
+    
+    if device_ip and app_server_ip:
+        if device_ports_str or app_server_ports_str:
+            # Include ports in flow descriptions
+            device_ports = device_ports_str if device_ports_str else " 0-65535"
+            app_server_ports = app_server_ports_str if app_server_ports_str else " 0-65535"
+            
+            flow_descriptions = [
+                f"permit in ip from {device_ip}{device_ports} to {app_server_ip}{app_server_ports}",
+                f"permit out ip from {app_server_ip}{app_server_ports} to {device_ip}{device_ports}"
+            ]
+        else:
+            # No ports specified - apply to all traffic
+            flow_descriptions = [
+                f"permit in ip from {device_ip} to {app_server_ip}",
+                f"permit out ip from {app_server_ip} to {device_ip}"
+            ]
+    
+    # Get notification destination
     notification_destination = str(session_info.sink) if session_info.sink else "https://example.com/callback"
     
-    # Build the flow descriptions in the correct format (without ports for now)
-    flow_descriptions = []
-    if device_ip and app_server_ip:
-        # Format: "permit out ip from <device_ip> to <app_server_ip>"
-        # Format: "permit in ip from <app_server_ip> to <device_ip>"
-        flow_descriptions = [
-            f"permit in ip from {device_ip} to {app_server_ip}",
-            f"permit out ip from {app_server_ip} to {device_ip}"
-        ]
-    
-    # Construct the JSON payload
+    # Step 9: Construct AsSessionWithQoS payload
     qos_payload = {
         "flowInfo": [
             {
@@ -184,19 +202,17 @@ async def post_tf_to_qos(session_id):
         "supportedFeatures": "12",
         "ueIpv4Addr": device_ip
     }
-
+    
     logger.debug(f"AsSessionWithQoS Payload: {json.dumps(qos_payload, indent=2)}")
-
-    # Send the payload to the QoS system
+    
+    #Send POST request to AsSessionWithQoS/NEF
     qos_endpoint = f"{ASSESSIONWITHQOS_URL}/{x_correlator}/subscriptions"
     status_code = None
     
     try:
         logger.info(f"Sending POST to AsSessionWithQoS: {qos_endpoint}")
         
-        headers = {
-            "Content-Type": "application/json"
-        }
+        headers = {"Content-Type": "application/json"}
         if x_correlator:
             headers["x-correlator"] = x_correlator
         
@@ -207,49 +223,47 @@ async def post_tf_to_qos(session_id):
                 headers=headers,
                 timeout=10.0
             )
-        
+            
             status_code = response.status_code
             logger.debug(f"AsSessionWithQoS Response Status: {status_code}")
             
-            if response.status_code == 201:
-
-
+            #Handle successful response (201 Created)
+            if status_code == 201:
                 try:
                     response_data = response.json()
-                    QoS_sub_id = response_data.get("link", "").split("/")[-1]
                     
+                    # Extract subscription ID from response
+                    QoS_sub_id = response_data.get("link", "").split("/")[-1]
                     if not QoS_sub_id:
                         QoS_sub_id = response_data.get("subscriptionId")
                     
                     if QoS_sub_id:
                         logger.debug(f"QoS Subscription ID: {QoS_sub_id}")
                         
-                        # Store the subscription ID in the database
+                        # Store subscription ID in database
                         update_subscription_id(session_id, QoS_sub_id)
                         
-                        # Get duration and schedule delete
+                        # Schedule automatic deletion after session duration
                         duration = session_info.duration
                         logger.debug(f"Scheduling QoS deletion after {duration} seconds")
                         
-                        # Create a background task to delete the subscription after duration
                         task = asyncio.create_task(
                             schedule_qos_deletion(x_correlator, QoS_sub_id, duration, session_id)
                         )
                         
-                        # Store the task reference so it can be cancelled if duration is extended
+                        # Store task reference for potential cancellation
                         update_deletion_task(session_id, task)
                     else:
                         logger.warning("Could not extract QoS subscription ID from response")
                         
                 except Exception as e:
-                    logger.error(f"Error processing QoS response for auto-deletion: {str(e)}")
+                    logger.error(f"Error processing QoS response: {str(e)}")
             else:
-                logger.warning(f"QoS system returned status {response.status_code}: {response.text}")
-        
-            
+                logger.warning(f"QoS system returned status {status_code}: {response.text}")
+                
     except Exception as e:
         logger.error(f"Error sending QoS payload: {str(e)}")
-        status_code = 500  # Set error status code for exception cases
+        status_code = 500
     
     return qos_payload, status_code
 
