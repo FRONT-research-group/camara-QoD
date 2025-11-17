@@ -1,7 +1,7 @@
-from app.services.db import get_session_data, update_subscription_id, in_memory_db, update_deletion_task, get_deletion_task
+from app.services.db import get_session_data, update_subscription_id, in_memory_db, update_deletion_task
 from app.utils.logger import get_app_logger
 from app.helpers.callback import send_notification_to_sink
-from app.models.schemas import EventQosStatus, StatusInfo, QosStatus
+from app.models.schemas import EventQosStatus, StatusInfo
 import json
 import httpx
 import asyncio
@@ -29,10 +29,8 @@ async def schedule_qos_deletion(scs_as_id, QoS_sub_id, duration, session_id):
     """
     logger.debug(f"Scheduled QoS deletion for QoS NEF ID {QoS_sub_id} (QoD session {session_id}) in {duration} seconds")
     
-    # Wait for the duration asynchronously
     await asyncio.sleep(duration)
     
-    # Send delete request
     delete_endpoint = f"{ASSESSIONWITHQOS_URL}/{scs_as_id}/subscriptions/{QoS_sub_id}"
     
     try:
@@ -64,7 +62,6 @@ async def schedule_qos_deletion(scs_as_id, QoS_sub_id, duration, session_id):
         status_info=StatusInfo.DURATION_EXPIRED
     )
     
-    # Update session status to UNAVAILABLE with expiresAt as current time
     session_data = get_session_data(session_id)
     if session_data:
         session_info = session_data.get("session")
@@ -72,7 +69,6 @@ async def schedule_qos_deletion(scs_as_id, QoS_sub_id, duration, session_id):
             session_info.expiresAt = datetime.now(timezone.utc)
             session_info.statusInfo = StatusInfo.DURATION_EXPIRED
     
-    # Delete the session from database after duration expiry
     store = in_memory_db()
     if session_id in store:
         del store[session_id]
@@ -100,7 +96,6 @@ async def post_tf_to_qos(session_id):
     """
     logger.debug(f"Transforming CAMARA session {session_id} to AsSessionWithQoS payload")
     
-    # Step 1: Retrieve session data
     session_data = get_session_data(session_id)
     if not session_data:
         logger.error(f"Session {session_id} not found in database")
@@ -121,28 +116,23 @@ async def post_tf_to_qos(session_id):
     if session_info.device:
         if session_info.device.ipv4Address:
             device_ip = str(session_info.device.ipv4Address.root.publicAddress.root)
-            # Check for publicPort in device.ipv4Address
             if hasattr(session_info.device.ipv4Address.root, 'publicPort') and session_info.device.ipv4Address.root.publicPort:
                 device_public_port = session_info.device.ipv4Address.root.publicPort.root
         elif session_info.device.ipv6Address:
             device_ip = str(session_info.device.ipv6Address.root)
     
-    #Extract application server IP
     app_server_ip = None
     
     if session_info.applicationServer:
         if session_info.applicationServer.ipv4Address:
             app_server_ip = str(session_info.applicationServer.ipv4Address.root)
-            # Convert 0.0.0.0/0 to "any"
             if app_server_ip in ["0.0.0.0/0"]:
                 app_server_ip = "any"
         elif session_info.applicationServer.ipv6Address:
             app_server_ip = str(session_info.applicationServer.ipv6Address.root)
-            # Convert ::/0 to "any"
             if app_server_ip in ["::/0", "::"]:
                 app_server_ip = "any"
     
-    # Extract device ports (prioritize publicPort, then devicePorts)
     device_ports_str = ""
     
     if device_public_port:
@@ -155,7 +145,6 @@ async def post_tf_to_qos(session_id):
             ranges_list = [f"{r.from_.root}-{r.to.root}" for r in session_info.devicePorts.ranges]
             device_ports_str = f" {','.join(ranges_list)}"
     
-    #Extract application server ports
     app_server_ports_str = ""
     
     if session_info.applicationServerPorts:
@@ -166,12 +155,12 @@ async def post_tf_to_qos(session_id):
             ranges_list = [f"{r.from_.root}-{r.to.root}" for r in session_info.applicationServerPorts.ranges]
             app_server_ports_str = f" {','.join(ranges_list)}"
     
-    #Build flow descriptions
+
     flow_descriptions = []
     
     if device_ip and app_server_ip:
         if device_ports_str or app_server_ports_str:
-            # Include ports in flow descriptions
+
             device_ports = device_ports_str if device_ports_str else " 0-65535"
             app_server_ports = app_server_ports_str if app_server_ports_str else " 0-65535"
             
@@ -180,7 +169,7 @@ async def post_tf_to_qos(session_id):
                 f"permit out ip from {app_server_ip}{app_server_ports} to {device_ip}{device_ports}"
             ]
         else:
-            # No ports specified - apply to all traffic
+
             flow_descriptions = [
                 f"permit in ip from {device_ip} to {app_server_ip}",
                 f"permit out ip from {app_server_ip} to {device_ip}"
@@ -189,7 +178,7 @@ async def post_tf_to_qos(session_id):
     # Get notification destination
     notification_destination = str(session_info.sink) if session_info.sink else "https://example.com/callback"
     
-    # Step 9: Construct AsSessionWithQoS payload
+
     qos_payload = {
         "flowInfo": [
             {
@@ -227,12 +216,12 @@ async def post_tf_to_qos(session_id):
             status_code = response.status_code
             logger.debug(f"AsSessionWithQoS Response Status: {status_code}")
             
-            #Handle successful response (201 Created)
+
             if status_code == 201:
                 try:
                     response_data = response.json()
                     
-                    # Extract subscription ID from response
+
                     QoS_sub_id = response_data.get("link", "").split("/")[-1]
                     if not QoS_sub_id:
                         QoS_sub_id = response_data.get("subscriptionId")
@@ -240,7 +229,7 @@ async def post_tf_to_qos(session_id):
                     if QoS_sub_id:
                         logger.debug(f"QoS Subscription ID: {QoS_sub_id}")
                         
-                        # Store subscription ID in database
+
                         update_subscription_id(session_id, QoS_sub_id)
                         
                         # Schedule automatic deletion after session duration
@@ -251,7 +240,6 @@ async def post_tf_to_qos(session_id):
                             schedule_qos_deletion(x_correlator, QoS_sub_id, duration, session_id)
                         )
                         
-                        # Store task reference for potential cancellation
                         update_deletion_task(session_id, task)
                     else:
                         logger.warning("Could not extract QoS subscription ID from response")
@@ -276,7 +264,6 @@ async def delete_tf_to_qos(session_id):
     """
     logger.info(f"Deleting QoS subscription for session {session_id}")
     
-    # Get session data to retrieve QoS_sub_id and x_correlator
     session_data = get_session_data(session_id)
     
     if not session_data:
@@ -294,7 +281,7 @@ async def delete_tf_to_qos(session_id):
         logger.warning(f"No x-correlator found for session {session_id}, cannot delete subscription")
         return
     
-    # Send delete request to external QoS system
+    # Send delete request to external QoS 
     delete_endpoint = f"{ASSESSIONWITHQOS_URL}/{x_correlator}/subscriptions/{QoS_sub_id}"
     
     try:

@@ -1,11 +1,7 @@
-from fastapi import APIRouter, HTTPException, Header, Response, Request, Depends, status
-from fastapi.responses import JSONResponse
-from typing import Optional, Dict, Any
-import uuid
-from datetime import datetime, timezone
-from pydantic import ValidationError
+from fastapi import APIRouter, Header,Depends, status
+from typing import Optional
 from app.utils.logger import get_app_logger
-from app.models.schemas import CreateSession, SessionInfo, QosStatus, SessionId, XCorrelator, ExtendSessionDuration,RetrieveSessionsOutput,RetrieveSessionsInput
+from app.models.schemas import CreateSession, SessionInfo, ExtendSessionDuration,RetrieveSessionsOutput,RetrieveSessionsInput
 from app.services.db import in_memory_db
 from app.services.backend_routers import create_session, get_session_info, delete_session, extend_duration, retrieve_backend_sessions
 from app.helpers.response_examples import (

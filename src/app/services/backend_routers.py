@@ -1,4 +1,4 @@
-from fastapi import HTTPException, Header, Depends, status
+from fastapi import HTTPException, Depends, status
 from fastapi.responses import JSONResponse
 from typing import Optional
 import uuid
@@ -334,7 +334,6 @@ async def delete_session(
             status_info=StatusInfo.DELETE_REQUESTED
         )
         
-        # Delete the session from database
         store = in_memory_db()
         if session_id in store:
             del store[session_id]
