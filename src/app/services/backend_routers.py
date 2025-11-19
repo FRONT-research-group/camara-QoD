@@ -1,4 +1,4 @@
-from fastapi import HTTPException, Header, Depends, status
+from fastapi import HTTPException, Depends, status
 from fastapi.responses import JSONResponse
 from typing import Optional
 import uuid
@@ -127,7 +127,7 @@ async def create_session(
             sink=session_request.sink,
             sinkCredential=session_request.sinkCredential,
             duration=session_request.duration,
-            qosStatus=QosStatus.AVAILABLE,
+            qosStatus=QosStatus.REQUESTED,  # Initially REQUESTED, will be updated based on QoS response
             statusInfo=None,
             startedAt=started_at,
             expiresAt=expires_at
@@ -143,14 +143,33 @@ async def create_session(
 
 
         #NOTE Calling the TF function to create the session in AsSessionWithQoS
-        await post_tf_to_qos(str(session_id.root))
+        _, qos_status_code = await post_tf_to_qos(str(session_id.root))
         
-        # Send callback notification for successful session creation with AVAILABLE status
-        await send_notification_to_sink(
-            session_id=str(session_id.root),
-            qos_status=EventQosStatus.AVAILABLE,
-            status_info=None
-        )
+        # Check QoS system response and update session status accordingly
+        if qos_status_code and qos_status_code in [200, 201]:
+            # Success: Update to AVAILABLE
+            logger.info(f"QoS system successfully created session {session_id.root}")
+            session_info.qosStatus = QosStatus.AVAILABLE
+            session_info.statusInfo = None
+            
+            # Send callback notification with AVAILABLE status
+            await send_notification_to_sink(
+                session_id=str(session_id.root),
+                qos_status=EventQosStatus.AVAILABLE,
+                status_info=None
+            )
+        else:
+            # Error: Update to UNAVAILABLE with NETWORK_TERMINATED
+            logger.warning(f"QoS system returned error {qos_status_code} for session {session_id.root}")
+            session_info.qosStatus = QosStatus.UNAVAILABLE
+            session_info.statusInfo = StatusInfo.NETWORK_TERMINATED
+            
+            # Send callback notification with UNAVAILABLE status and NETWORK_TERMINATED info
+            await send_notification_to_sink(
+                session_id=str(session_id.root),
+                qos_status=EventQosStatus.UNAVAILABLE,
+                status_info=StatusInfo.NETWORK_TERMINATED
+            )
 
         return JSONResponse(
             status_code=status.HTTP_201_CREATED,
@@ -315,7 +334,6 @@ async def delete_session(
             status_info=StatusInfo.DELETE_REQUESTED
         )
         
-        # Delete the session from database
         store = in_memory_db()
         if session_id in store:
             del store[session_id]

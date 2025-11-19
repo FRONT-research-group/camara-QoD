@@ -1,11 +1,7 @@
-from fastapi import APIRouter, HTTPException, Header, Response, Request, Depends, status
-from fastapi.responses import JSONResponse
-from typing import Optional, Dict, Any
-import uuid
-from datetime import datetime, timezone
-from pydantic import ValidationError
+from fastapi import APIRouter, Header,Depends, status
+from typing import Optional
 from app.utils.logger import get_app_logger
-from app.models.schemas import CreateSession, SessionInfo, QosStatus, SessionId, XCorrelator, ExtendSessionDuration,RetrieveSessionsOutput,RetrieveSessionsInput
+from app.models.schemas import CreateSession, SessionInfo, ExtendSessionDuration,RetrieveSessionsOutput,RetrieveSessionsInput
 from app.services.db import in_memory_db
 from app.services.backend_routers import create_session, get_session_info, delete_session, extend_duration, retrieve_backend_sessions
 from app.helpers.response_examples import (
@@ -21,9 +17,6 @@ logger = get_app_logger()
 router = APIRouter()
 
 
-#NOTE check if in the parameters the x_correlator is required or not
-
-
 @router.post(
     "/sessions",
     response_model=SessionInfo,
@@ -36,20 +29,20 @@ router = APIRouter()
         {
         "device": {
             "ipv4Address": {
-            "publicAddress": "203.0.113.0",
-            "privateAddress": "192.168.1.10",
-            "publicPort": 5060
+            "publicAddress": "10.11.11.2",
+            "privateAddress": "10.11.11.2"
             }
         },
         "applicationServer": {
-            "ipv4Address": "192.168.1.100"
+            "ipv4Address": "192.168.1.0/24"
         },
-        "qosProfile": "qod_2",
+        "qosProfile": "QOS_L",
         "duration": 3600
         }
     Required fields:
+    - device: must have publicAddress and privateAddress
     - applicationServer: Must have at least one IP address (IPv4 or IPv6)
-    - qosProfile: QoS profile name (e.g., QOS_L, QOS_S, QOS_M, QOS_E, voice)
+    - qosProfile: QoS profile name (e.g., QOS_L, QOS_S, QOS_M, QOS_E)
     - duration: Session duration in seconds (minimum 1)
     
     Optional fields:
