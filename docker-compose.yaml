@@ -1,0 +1,33 @@
+services:
+  nef-qos:
+    image: ghcr.io/front-research-group/nef-qos:latest
+    container_name: nef-qos
+    restart: unless-stopped
+    environment:
+      # App configuration
+      NEF_BASE_URL: "http://localhost:8001"
+      PCF_BASE_URL: "10.220.2.73"
+      PCF_PORT: "8086"
+
+      # Define QoS profiles via environment variables
+      QOS_MAPPING: >
+        {
+          "QOS_E": {"marBwDl": "1 Mbps", "marBwUl": "1 Mbps", "mediaType": "VIDEO"},
+          "QOS_L": {"marBwDl": "20 Mbps", "marBwUl": "20 Mbps", "mediaType": "AUDIO"},
+          "QOS_M": {"marBwDl": "8 Mbps", "marBwUl": "8 Mbps", "mediaType": "VIDEO"},
+          "QOS_S": {"marBwDl": "4 Mbps", "marBwUl": "4 Mbps", "mediaType": "VIDEO"}
+        }
+    ports:
+      - "8585:8001"  
+
+  camara-qod:
+    image: ghcr.io/front-research-group/camara-qod:latest
+    container_name: camara-qod
+    restart: unless-stopped
+    environment:
+      ASSESSIONWITHQOS_URL: "http://nef-qos:8001/3gpp-as-session-with-qos/v1"
+      LOG_LEVEL: "DEBUG"
+    depends_on:
+      - nef-qos
+    ports:
+      - "8584:8002" 

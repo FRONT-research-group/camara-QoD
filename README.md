@@ -1,148 +1,155 @@
-# CAMARA Quality on Demand (QoD) API
+# CAMARA Quality on Demand (QoD) API and AsSessionWithQoS NEF - Docker Compose
+
+This repository contains a Docker Compose setup to run both the **CAMARA QoD API** and **NEF AsSessionWithQoS** services together.
 
 ## Overview
 
-The Quality-On-Demand (QoD) API provides a programmable interface for developers to request stable throughput from the network without requiring in-depth knowledge of the underlying network complexity (e.g., 4G/5G systems).
+This deployment consists of two interconnected services:
 
-This service implements the CAMARA QoD API specification, acting as a gateway that translates CAMARA-compliant requests into 3GPP AsSessionWithQoS format for network integration.
+1. **NEF-QoS Service** (`nef-qos`): Implements the 3GPP AsSessionWithQoS API for network exposure functions
+2. **CAMARA QoD Service** (`camara-qod`): Implements the CAMARA Quality on Demand API specification
 
-
-
-## How It Works
-
-The QoD API allows developers to request prioritized network quality for specific application data flows between:
-- **Application clients** (within user devices)
-- **Application servers** (backend services)
-
-Developers select from pre-defined **QoS profiles** that map to their throughput requirements, ensuring stable performance even during network congestion.
-
-## Key Concepts
-
-### QoS Profiles
-Pre-defined quality levels that specify latency, throughput, or priority requirements. Available profiles can be retrieved via the qos-profiles API or agreed upon during onboarding.
-
-The following QoS profiles are currently supported:
-
-- **QOS_E**: Up to 1 Mbps download/upload bandwidth for video applications
-- **QOS_S**: Up to 4 Mbps download/upload bandwidth for video applications  
-- **QOS_M**: Up to 8 Mbps download/upload bandwidth for video applications
-- **QOS_L**: Up to 20 Mbps download/upload bandwidth for audio applications
-
-
-
-### Device Identification
-At least one identifier for the user device:
-- **IPv4 address** (with optional public/private addresses and port)
-- **IPv6 address**
-- **Phone number**
-- **Network Access Identifier** (future use)
-
-### Application Server
-IPv4 and/or IPv6 address of the backend server. Supports CIDR notation (e.g., `192.168.1.0/24`).
-
-
-### Duration
-Time (in seconds) for which the QoS session should be active. Sessions can be:
-- Automatically terminated after duration expires
-- Manually deleted by the user
-- Extended during the session lifetime
-
-### Notifications
-Optional callback URL (`sink`) where CloudEvents notifications about session status changes are sent:
-- `AVAILABLE`: QoS successfully allocated
-- `UNAVAILABLE`: QoS not available or terminated
-- Status info: `DURATION_EXPIRED`, `NETWORK_TERMINATED`, `DELETE_REQUESTED`
-
-
+The CAMARA QoD service acts as a northbound interface translating CAMARA-compliant requests to 3GPP AsSessionWithQoS calls.
 
 ## Architecture
-![CAMARA_Flow](images/QoD_details.png)
 
+```
+┌─────────────────┐
+│  Application    │
+│  (Your Code)    │
+└────────┬────────┘
+         │ CAMARA QoD API
+         │ (Port 8584)
+         ▼
+┌─────────────────┐
+│  camara-qod     │
+│  Container      │
+└────────┬────────┘
+         │ AsSessionWithQoS API
+         │ (Internal: nef-qos:8001)
+         ▼
+┌─────────────────┐
+│  nef-qos        │
+│  Container      │
+└────────┬────────┘
+         │ HTTP/2
+         │ (To PCF)
+         ▼
+┌─────────────────┐
+│  5G Core PCF    │
+└─────────────────┘
+```
 
-## API Functionality
+## Services
 
-The QoD API enables:
+### NEF-QoS Service
 
-1. **Prioritized App-Flows**: Ensure stable throughput for specific data flows
-2. **Flow Definition**: Specify flows using device identifiers, server addresses, and ports
-3. **Duration Control**: Define how long the prioritized flow should be active
-4. **Profile Selection**: Choose appropriate QoS profiles (e.g., `QOS_E`)
-5. **Event Notifications**: Receive real-time updates on session status changes
+- **Image**: `ghcr.io/front-research-group/nef-qos:latest`
+- **Port**: `8585:8001`
+- **API Base**: `http://localhost:8585/3gpp-as-session-with-qos/v1`
+
+Implements 3GPP TS 29.122 Application Session Context with QoS API.
+
+**Environment Variables**:
+- `PCF_BASE_URL`: IP address of the Policy Control Function (default: `10.220.2.73`)
+- `PCF_PORT`: PCF port (default: `8086`)
+- `QOS_MAPPING`: JSON mapping of QoS profiles to network parameters
+
+**QoS Profiles**:
+- `QOS_E`: 1 Mbps UL/DL (Video)
+- `QOS_L`: 20 Mbps UL/DL (Audio)
+- `QOS_M`: 8 Mbps UL/DL (Video)
+- `QOS_S`: 4 Mbps UL/DL (Video)
+
+### CAMARA QoD Service
+
+- **Image**: `ghcr.io/front-research-group/camara-qod:latest`
+- **Port**: `8584:8002`
+- **API Base**: `http://localhost:8584/qod/v0`
+
+Implements CAMARA Quality-on-Demand API specification.
+
+**Environment Variables**:
+- `ASSESSIONWITHQOS_URL`: Internal URL to NEF-QoS service (default: `http://nef-qos:8001/3gpp-as-session-with-qos/v1`)
+- `LOG_LEVEL`: Logging verbosity (default: `DEBUG`)
 
 ## Quick Start
 
-### Installation
+### Prerequisites
 
+- Docker Engine 20.10+
+- Docker Compose v2.0+
+- Network access to 5G Core PCF (if using real network)
+
+### Running the Services
+
+1. Clone this repository:
 ```bash
-git clone https://github.com/FRONT-research-group/camara-QoD.git
-cd camara-QoD/
+git clone <repository-url>
+cd QoD-NCSRD
 ```
 
-### Setup
-
-Create and activate virtual environment:
-
+2. Switch to the docker-compose branch:
 ```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+git checkout camara-nef-compose
 ```
 
-### Configuration
-
-Edit environment variables in `src/app/utils/config.py`:
-
-**ASSESSIONWITHQOS_URL**
-- Set the URL of the running NEF service
-- Example: `http://{nef-ip}:8001/3gpp-as-session-with-qos/v1`
-
-**LOG_LEVEL**
-- `INFO`: Standard logs
-- `DEBUG`: Full debug logs
-
-### Running the Service
-
-**Option 1: Run Directly**
-
+3. Start both services:
 ```bash
-python3 src/main.py
+docker-compose up -d
 ```
 
-Access the API documentation at: **http://localhost:8002/docs**
-
-**Option 2: Run with Docker**
-
-Build the Docker image:
-
+4. Verify services are running:
 ```bash
-docker build -t camara-qod .
+docker-compose ps
 ```
 
-Run the container:
-
+5. Check logs:
 ```bash
-docker run -d \
-    -e ASSESSIONWITHQOS_URL="http://nef-qos:8001/3gpp-as-session-with-qos/v1" \
-    -e LOG_LEVEL="INFO" \
-    -p 8002:8002 \
-    camara-qod
+# All services
+docker-compose logs -f
+
+# Specific service
+docker-compose logs -f camara-qod
+docker-compose logs -f nef-qos
 ```
 
-**Note:** Replace `nef-qos:8001` with your actual NEF service host and port.
+### Stopping the Services
 
+```bash
+# Stop services
+docker-compose down
 
+# Stop and remove volumes
+docker-compose down -v
+```
 
-## Notes
+## Configuration
 
-- **Tested with**: Amari RAN and Open5GS core network
-- **Related Project**: Tested with [NEF-QoS](https://github.com/FRONT-research-group/NEF-QoS) - AsSessionWithQoS/NEF implementation
-- **CAMARA QoD Official Swagger**: [API Documentation](https://camaraproject.github.io/swagger-ui/?url=https://raw.githubusercontent.com/camaraproject/QualityOnDemand/r3.2/code/API_definitions/quality-on-demand.yaml#/QoS%20Sessions/deleteSession)
+### Custom QoS Profiles
 
----
+Edit `docker-compose.yaml` to modify the `QOS_MAPPING` environment variable:
 
-## Support
+```yaml
+QOS_MAPPING: >
+  {
+    "QOS_CUSTOM": {"marBwDl": "50 Mbps", "marBwUl": "10 Mbps", "mediaType": "VIDEO"}
+  }
+```
 
-For questions or issues, contact: **asakellaropoulos@iit.demokritos.gr**
+### PCF Connection
 
+Update the PCF connection settings in `docker-compose.yaml`:
 
+```yaml
+environment:
+  PCF_BASE_URL: "your.pcf.ip.address"
+  PCF_PORT: "8086"
+```
 
+## Accessing the APIs
+
+You can access each API respectively through:
+
+- **NEF AsSessionWithQoS API**: `http://localhost:8585/docs` (Swagger UI)
+- **CAMARA QoD API**: `http://localhost:8584/docs` (Swagger UI)
