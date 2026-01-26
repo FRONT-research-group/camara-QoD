@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src ./src
 
-EXPOSE 8001
+EXPOSE 8584
 
 ENV ASSESSIONWITHQOS_URL="http://10.220.2.73:8585/3gpp-as-session-with-qos/v1"
 ENV LOG_LEVEL="DEBUG"
