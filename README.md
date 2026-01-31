@@ -138,6 +138,11 @@ docker run -d \
 - **Related Project**: Tested with [NEF-QoS](https://github.com/FRONT-research-group/NEF-QoS) - AsSessionWithQoS/NEF implementation
 - **CAMARA QoD Official Swagger**: [API Documentation](https://camaraproject.github.io/swagger-ui/?url=https://raw.githubusercontent.com/camaraproject/QualityOnDemand/r3.2/code/API_definitions/quality-on-demand.yaml#/QoS%20Sessions/deleteSession)
 
+
+## License
+
+This project is licensed under the Apache License 2.0.
+
 ---
 
 ## Support
