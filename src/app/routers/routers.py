@@ -44,7 +44,16 @@ router = APIRouter()
     - applicationServer: Must have at least one IP address (IPv4 or IPv6)
     - qosProfile: QoS profile name (e.g., QOS_L, QOS_S, QOS_M, QOS_E)
     - duration: Session duration in seconds (minimum 1)
-    
+
+    ## Available QoS Profiles
+
+    | Profile | Download BW | Upload BW | Media Type |
+
+    | `QOS_E` | 3 Mbps      | 3 Mbps    | VIDEO |
+    | `QOS_L` | 40 Mbps     | 40 Mbps   | AUDIO |
+    | `QOS_M` | 20 Mbps     | 20 Mbps   | VIDEO |
+    | `QOS_S` | 10 Mbps     | 10 Mbps   | VIDEO |
+        
     Optional fields:
     - device: Device information
     - devicePorts: Ports used by the device
