@@ -14,6 +14,7 @@ import csv
 import json
 import os
 import statistics
+import subprocess
 import threading
 import time
 from dataclasses import dataclass, asdict, field
@@ -36,6 +37,7 @@ QOD_SESSIONS = f"{QOD_HOST}/quality-on-demand/v1/sessions"
 RPI_HOST    = "10.220.2.128"            # RPi IP address
 RPI_USER    = "pi"                       # SSH username
 RPI_SSH_KEY = os.path.expanduser("~/.ssh/front_ecdsa")  # SSH private key path
+RPI_LOCAL   = True                       # Set True when running this script directly on the RPi
 
 # iPerf3 server (must be reachable from RPi through the 5G network)
 IPERF_SERVER = "10.220.2.166"
@@ -205,6 +207,34 @@ class SSHRunner:
         channel   = transport.open_session()
         channel.exec_command(cmd)
         return channel
+
+
+class LocalRunner:
+    """Drop-in replacement for SSHRunner that runs commands locally via subprocess.
+    Use when the script is executed directly on the RPi (RPI_LOCAL = True).
+    """
+
+    def connect(self):
+        print("[Local] Running iperf3 commands directly on this machine")
+
+    def disconnect(self):
+        pass
+
+    def run(self, cmd: str, timeout: int = 120) -> Tuple[str, str, int]:
+        """Run a command locally and wait for it to finish."""
+        try:
+            result = subprocess.run(
+                cmd, shell=True, capture_output=True, text=True, timeout=timeout
+            )
+            return result.stdout, result.stderr, result.returncode
+        except subprocess.TimeoutExpired:
+            return "", "Command timed out", 1
+
+    def run_background(self, cmd: str) -> subprocess.Popen:
+        """Start a command locally in background (fire-and-forget)."""
+        return subprocess.Popen(
+            cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
 
 
 # ─────────────────────────────────────────────────────────────
@@ -924,8 +954,11 @@ def main():
     print(f"  iPerf srv: {IPERF_SERVER}")
     print("=" * 60)
 
-    # Connect SSH to the RPi once and reuse for all tests
-    ssh = SSHRunner(RPI_HOST, RPI_USER, RPI_SSH_KEY)
+    # Connect to the RPi — locally if running on the RPi, via SSH otherwise
+    if RPI_LOCAL:
+        ssh = LocalRunner()
+    else:
+        ssh = SSHRunner(RPI_HOST, RPI_USER, RPI_SSH_KEY)
     ssh.connect()
 
     # Ensure the BG iperf3 server is running on port 5202
