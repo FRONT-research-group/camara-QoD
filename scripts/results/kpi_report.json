@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-05-21T16:18:35.491525+00:00",
-  "qos_profile": "QOS_S",
+  "generated_at": "2026-05-21T18:04:36.960616+00:00",
+  "qos_profile": "QOS_M",
   "thresholds_used": {
     "throughput": {
-      "max_dl_mbps": 10,
-      "max_ul_mbps": 10
+      "max_dl_mbps": 20,
+      "max_ul_mbps": 20
     },
     "retainability_pct": 95.0,
     "success_rate_pct": 99.9,
@@ -13,144 +13,228 @@
   "TC_QoD_1_KPI_Enab_QoD_QoSSessionRetainability": [
     {
       "scenario": "1_no_qod_no_background",
-      "qos_profile": "QOS_S",
-      "total_samples": 5,
+      "qos_profile": "QOS_M",
+      "total_samples": 9,
       "qos_ok_samples": 0,
       "retainability_pct": 0.0,
-      "avg_dl_mbps": 125.27,
-      "min_dl_mbps": 119.0,
-      "max_dl_mbps": 129.81,
-      "p95_dl_mbps": 129.6,
-      "stdev_dl_mbps": 4.57,
-      "avg_ul_mbps": 21.01,
-      "min_ul_mbps": 20.34,
-      "max_ul_mbps": 21.49,
-      "p95_ul_mbps": 21.43,
-      "stdev_ul_mbps": 0.42,
+      "avg_dl_mbps": 115.63,
+      "min_dl_mbps": 102.75,
+      "max_dl_mbps": 126.65,
+      "p95_dl_mbps": 124.22,
+      "stdev_dl_mbps": 6.47,
+      "avg_ul_mbps": 23.53,
+      "min_ul_mbps": 22.43,
+      "max_ul_mbps": 24.32,
+      "p95_ul_mbps": 24.24,
+      "stdev_ul_mbps": 0.65,
       "threshold_met": false,
       "scenario_check_ok": true,
-      "scenario_check_desc": "Uncapped DL baseline: avg DL 125.27 Mbps > cap 10 Mbps",
+      "scenario_check_desc": "Uncapped DL baseline: avg DL 115.63 Mbps > cap 20 Mbps",
       "samples": [
         {
-          "timestamp": 1779379450.0632708,
-          "dl_mbps": 119.0,
-          "ul_mbps": 21.49,
+          "timestamp": 1779386086.0507843,
+          "dl_mbps": 114.07,
+          "ul_mbps": 24.11,
           "qos_ok": false
         },
         {
-          "timestamp": 1779379478.1836464,
-          "dl_mbps": 128.75,
-          "ul_mbps": 21.07,
+          "timestamp": 1779386100.1064894,
+          "dl_mbps": 120.57,
+          "ul_mbps": 23.06,
           "qos_ok": false
         },
         {
-          "timestamp": 1779379506.3431904,
-          "dl_mbps": 129.81,
-          "ul_mbps": 20.97,
+          "timestamp": 1779386114.2462783,
+          "dl_mbps": 102.75,
+          "ul_mbps": 22.43,
           "qos_ok": false
         },
         {
-          "timestamp": 1779379534.4470649,
+          "timestamp": 1779386128.3500636,
+          "dl_mbps": 117.0,
+          "ul_mbps": 24.11,
+          "qos_ok": false
+        },
+        {
+          "timestamp": 1779386142.4273412,
+          "dl_mbps": 115.32,
+          "ul_mbps": 23.27,
+          "qos_ok": false
+        },
+        {
+          "timestamp": 1779386156.444153,
+          "dl_mbps": 117.63,
+          "ul_mbps": 24.11,
+          "qos_ok": false
+        },
+        {
+          "timestamp": 1779386170.528246,
+          "dl_mbps": 111.97,
+          "ul_mbps": 24.32,
+          "qos_ok": false
+        },
+        {
+          "timestamp": 1779386184.6683044,
           "dl_mbps": 126.65,
-          "ul_mbps": 20.34,
+          "ul_mbps": 23.27,
           "qos_ok": false
         },
         {
-          "timestamp": 1779379562.5477226,
-          "dl_mbps": 122.15,
-          "ul_mbps": 21.18,
+          "timestamp": 1779386198.7905416,
+          "dl_mbps": 114.69,
+          "ul_mbps": 23.06,
           "qos_ok": false
         }
       ]
     },
     {
       "scenario": "2_no_qod_with_background",
-      "qos_profile": "QOS_S",
-      "total_samples": 4,
+      "qos_profile": "QOS_M",
+      "total_samples": 9,
       "qos_ok_samples": 0,
       "retainability_pct": 0.0,
-      "avg_dl_mbps": 124.08,
-      "min_dl_mbps": 119.63,
-      "max_dl_mbps": 127.7,
-      "p95_dl_mbps": 127.46,
-      "stdev_dl_mbps": 3.58,
-      "avg_ul_mbps": 20.89,
-      "min_ul_mbps": 20.55,
-      "max_ul_mbps": 21.39,
-      "p95_ul_mbps": 21.34,
-      "stdev_ul_mbps": 0.41,
+      "avg_dl_mbps": 105.07,
+      "min_dl_mbps": 93.3,
+      "max_dl_mbps": 115.74,
+      "p95_dl_mbps": 114.98,
+      "stdev_dl_mbps": 8.53,
+      "avg_ul_mbps": 23.22,
+      "min_ul_mbps": 22.22,
+      "max_ul_mbps": 23.9,
+      "p95_ul_mbps": 23.82,
+      "stdev_ul_mbps": 0.5,
       "threshold_met": false,
       "scenario_check_ok": true,
-      "scenario_check_desc": "Uncapped under BG traffic: avg DL 124.08 Mbps & avg UL 20.89 Mbps > 10 Mbps cap",
+      "scenario_check_desc": "Uncapped DL under BG traffic: avg DL 105.07 Mbps > 20 Mbps cap (UL 23.22 Mbps \u2014 asymmetric, not checked)",
       "samples": [
         {
-          "timestamp": 1779379599.7833068,
-          "dl_mbps": 127.7,
-          "ul_mbps": 20.55,
+          "timestamp": 1779386226.3684623,
+          "dl_mbps": 93.3,
+          "ul_mbps": 22.85,
           "qos_ok": false
         },
         {
-          "timestamp": 1779379631.9104183,
-          "dl_mbps": 126.13,
-          "ul_mbps": 20.55,
+          "timestamp": 1779386240.506778,
+          "dl_mbps": 105.88,
+          "ul_mbps": 23.06,
           "qos_ok": false
         },
         {
-          "timestamp": 1779379664.0134912,
-          "dl_mbps": 122.88,
-          "ul_mbps": 21.07,
+          "timestamp": 1779386254.73997,
+          "dl_mbps": 93.51,
+          "ul_mbps": 23.48,
           "qos_ok": false
         },
         {
-          "timestamp": 1779379692.1449552,
-          "dl_mbps": 119.63,
-          "ul_mbps": 21.39,
+          "timestamp": 1779386268.8523307,
+          "dl_mbps": 105.89,
+          "ul_mbps": 23.48,
+          "qos_ok": false
+        },
+        {
+          "timestamp": 1779386282.8868294,
+          "dl_mbps": 115.74,
+          "ul_mbps": 22.22,
+          "qos_ok": false
+        },
+        {
+          "timestamp": 1779386296.9890347,
+          "dl_mbps": 97.29,
+          "ul_mbps": 23.06,
+          "qos_ok": false
+        },
+        {
+          "timestamp": 1779386311.172725,
+          "dl_mbps": 108.19,
+          "ul_mbps": 23.9,
+          "qos_ok": false
+        },
+        {
+          "timestamp": 1779386325.2918525,
+          "dl_mbps": 111.96,
+          "ul_mbps": 23.69,
+          "qos_ok": false
+        },
+        {
+          "timestamp": 1779386339.4192755,
+          "dl_mbps": 113.85,
+          "ul_mbps": 23.27,
           "qos_ok": false
         }
       ]
     },
     {
       "scenario": "3_qod_with_background",
-      "qos_profile": "QOS_S",
-      "total_samples": 4,
-      "qos_ok_samples": 4,
+      "qos_profile": "QOS_M",
+      "total_samples": 9,
+      "qos_ok_samples": 9,
       "retainability_pct": 100.0,
-      "avg_dl_mbps": 5.29,
-      "min_dl_mbps": 4.72,
-      "max_dl_mbps": 5.98,
-      "p95_dl_mbps": 5.9,
-      "stdev_dl_mbps": 0.55,
-      "avg_ul_mbps": 4.54,
-      "min_ul_mbps": 4.09,
-      "max_ul_mbps": 5.03,
-      "p95_ul_mbps": 4.95,
-      "stdev_ul_mbps": 0.38,
+      "avg_dl_mbps": 9.74,
+      "min_dl_mbps": 9.44,
+      "max_dl_mbps": 11.11,
+      "p95_dl_mbps": 10.61,
+      "stdev_dl_mbps": 0.53,
+      "avg_ul_mbps": 5.01,
+      "min_ul_mbps": 3.35,
+      "max_ul_mbps": 6.71,
+      "p95_ul_mbps": 6.12,
+      "stdev_ul_mbps": 0.89,
       "threshold_met": true,
       "scenario_check_ok": true,
       "scenario_check_desc": "QoS retainability 100.0% >= 95.0%",
       "samples": [
         {
-          "timestamp": 1779379734.7844193,
-          "dl_mbps": 5.03,
-          "ul_mbps": 4.51,
+          "timestamp": 1779386368.51115,
+          "dl_mbps": 11.11,
+          "ul_mbps": 5.24,
           "qos_ok": true
         },
         {
-          "timestamp": 1779379766.5683315,
-          "dl_mbps": 5.45,
-          "ul_mbps": 4.09,
+          "timestamp": 1779386383.167744,
+          "dl_mbps": 9.44,
+          "ul_mbps": 4.4,
           "qos_ok": true
         },
         {
-          "timestamp": 1779379798.4835384,
-          "dl_mbps": 4.72,
-          "ul_mbps": 4.51,
+          "timestamp": 1779386396.829829,
+          "dl_mbps": 9.85,
+          "ul_mbps": 4.61,
           "qos_ok": true
         },
         {
-          "timestamp": 1779379826.5841556,
-          "dl_mbps": 5.98,
+          "timestamp": 1779386411.0478144,
+          "dl_mbps": 9.44,
           "ul_mbps": 5.03,
+          "qos_ok": true
+        },
+        {
+          "timestamp": 1779386424.951849,
+          "dl_mbps": 9.44,
+          "ul_mbps": 5.24,
+          "qos_ok": true
+        },
+        {
+          "timestamp": 1779386438.648077,
+          "dl_mbps": 9.44,
+          "ul_mbps": 5.24,
+          "qos_ok": true
+        },
+        {
+          "timestamp": 1779386452.568812,
+          "dl_mbps": 9.64,
+          "ul_mbps": 6.71,
+          "qos_ok": true
+        },
+        {
+          "timestamp": 1779386466.5095747,
+          "dl_mbps": 9.64,
+          "ul_mbps": 3.35,
+          "qos_ok": true
+        },
+        {
+          "timestamp": 1779386480.1627226,
+          "dl_mbps": 9.64,
+          "ul_mbps": 5.24,
           "qos_ok": true
         }
       ]
@@ -158,583 +242,27 @@
   ],
   "TC_QoD_2_KPI_Enab_QoD_SuccessRate_and_EstablishmentTime": [
     {
-      "scenario": "TC_QoD_2_seq1_no_concurrent_load",
+      "scenario": "step0_baseline_0Hz",
+      "concurrent_hz": 0.0,
       "total_requests": 60,
       "successful": 60,
       "failed": 0,
       "success_rate_pct": 100.0,
-      "avg_establishment_ms": 656.85,
-      "p95_establishment_ms": 745.06,
-      "max_establishment_ms": 798.2,
-      "min_establishment_ms": 576.64,
-      "p50_establishment_ms": 646.11,
-      "stdev_establishment_ms": 52.99,
+      "avg_establishment_ms": 1518.99,
+      "p95_establishment_ms": 1644.95,
+      "max_establishment_ms": 1861.15,
+      "min_establishment_ms": 1388.88,
+      "p50_establishment_ms": 1518.87,
+      "stdev_establishment_ms": 81.95,
       "success_rate_ok": true,
-      "establishment_time_ok": true,
-      "requests": [
-        {
-          "request_index": 1,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 685.88,
-          "session_id": "cf4c9cc8-4fc8-4380-9304-346447dba83d",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 2,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 674.19,
-          "session_id": "aec1c752-32a3-47e4-93c1-42ebdef3a289",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 3,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 743.72,
-          "session_id": "5fa51832-947d-457e-b885-04c0c4ef8de2",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 4,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 647.31,
-          "session_id": "a6280870-61f2-477e-a69e-0232ad020059",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 5,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 763.53,
-          "session_id": "006b87bb-5f17-4854-8deb-a7bc863ea575",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 6,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 649.76,
-          "session_id": "5e2b2a76-5a30-4291-8d67-0ac8aceb3f55",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 7,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 630.03,
-          "session_id": "b07f3dca-fe7f-41ed-af08-1f8917d36e9a",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 8,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 586.8,
-          "session_id": "0ebd19b0-46de-43e6-b702-4d8fc9f1c114",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 9,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 732.64,
-          "session_id": "7183263e-6063-4090-80a2-d98eeab951c1",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 10,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 615.39,
-          "session_id": "150a92e4-39ac-4b85-b6f2-ca28d7f90eba",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 11,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 639.46,
-          "session_id": "d40ee648-fd5e-407a-a009-9df9f1d39f51",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 12,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 583.91,
-          "session_id": "8ff2e065-3deb-4fad-9967-9f8cd4c24def",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 13,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 655.53,
-          "session_id": "992ae363-15cd-4e77-8f87-59518a6428db",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 14,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 629.21,
-          "session_id": "d34ccb20-f9e1-4d58-a5d8-b58172a953bc",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 15,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 580.83,
-          "session_id": "8972fb28-0ef3-42a3-bbdb-215928f00839",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 16,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 610.21,
-          "session_id": "94409cc7-7494-4938-af46-94e53b8c5eb6",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 17,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 685.28,
-          "session_id": "c4da92d1-eacf-4dee-8fc8-a33ca7bd4724",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 18,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 687.06,
-          "session_id": "02fd22b3-4065-4bdd-9c3e-48201fdd7147",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 19,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 605.5,
-          "session_id": "435cef5f-1946-472e-8f0d-a5c4b557a8a4",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 20,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 637.12,
-          "session_id": "3fe96c65-2919-412f-9d61-f6675ac40bda",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 21,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 669.96,
-          "session_id": "4bc3c38e-afd8-4f76-9f71-63607b5bf267",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 22,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 681.92,
-          "session_id": "e117e479-94bf-4bc1-ab9a-a49da12f80be",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 23,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 600.25,
-          "session_id": "5e639e9f-2858-465c-b7fa-0b1fa6314a4c",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 24,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 732.13,
-          "session_id": "315ecc27-2903-431b-8a68-fb14918cc76e",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 25,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 667.41,
-          "session_id": "28543330-bc3f-4e72-87e0-16a469dce657",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 26,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 616.94,
-          "session_id": "52dfab9a-7441-4654-a221-c2d982338605",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 27,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 623.3,
-          "session_id": "efd0c398-83c1-492d-951e-d27252d2bd15",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 28,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 654.17,
-          "session_id": "d983ee41-bc14-4c53-8f0b-4b77002d1727",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 29,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 629.34,
-          "session_id": "a655e279-d4e4-4a4a-a7bf-c195c64ca74e",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 30,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 597.06,
-          "session_id": "dcf1ba60-4beb-4281-87af-993fd4e36d3e",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 31,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 639.97,
-          "session_id": "6657e5fe-02c9-480e-ae52-d3d2725d158a",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 32,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 663.85,
-          "session_id": "40206eeb-d2fa-477d-b791-4b7c4ee1de9f",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 33,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 695.89,
-          "session_id": "fdd6998a-9b7b-4a2d-916c-d46a8bb6b774",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 34,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 611.99,
-          "session_id": "f4a91ec3-649e-4a94-b909-12d61564e160",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 35,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 686.02,
-          "session_id": "78e46f78-9966-45de-9ddb-f24b05e4045f",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 36,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 619.9,
-          "session_id": "9e49d034-34f9-4a43-9ec3-615c583daf89",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 37,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 798.2,
-          "session_id": "96784aea-22da-4c41-9a8a-67d2dfdf1289",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 38,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 744.09,
-          "session_id": "1222069c-a10a-4bd7-bbfa-dea2c964f42d",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 39,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 679.85,
-          "session_id": "c5a3ab95-128a-4ebe-acfa-48b0f68c0067",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 40,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 618.83,
-          "session_id": "25474f09-bf3b-494b-b38c-547178e5e5ce",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 41,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 766.05,
-          "session_id": "d852885d-57f2-41cf-9502-962378397ac2",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 42,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 628.29,
-          "session_id": "f1b075e7-75fd-47f1-8de4-8f465e4415b1",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 43,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 589.37,
-          "session_id": "66645a71-c4fb-4dbb-9a48-642e07a74192",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 44,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 671.13,
-          "session_id": "6b5a6325-b8dc-48bf-a3f6-41afb55c606e",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 45,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 658.77,
-          "session_id": "1cf7550d-47ee-49ff-b0cb-f52cbea52614",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 46,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 726.21,
-          "session_id": "b1d50aea-4f97-4ac1-97a6-f00d7f8549bf",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 47,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 667.6,
-          "session_id": "f6fb6fcd-09b9-4fb1-aac8-8bb2eb37cf00",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 48,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 740.47,
-          "session_id": "98351987-7e5d-437a-9b82-90afeaa1056d",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 49,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 604.41,
-          "session_id": "65752b33-8c35-44e3-91d7-60f5bebce3e0",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 50,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 691.92,
-          "session_id": "9c2f2229-16f4-4ad5-b44c-674972b2034a",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 51,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 722.42,
-          "session_id": "f672754c-fa53-4bdb-b300-8b5b390ac7b0",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 52,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 586.76,
-          "session_id": "1bd1cfc2-59a0-4874-ad41-f711c0c7ae50",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 53,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 644.9,
-          "session_id": "932e0189-4482-4fb0-83cd-b39c12f75c7a",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 54,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 627.0,
-          "session_id": "21538875-2766-442b-8edf-c3beb4cfcc8a",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 55,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 599.04,
-          "session_id": "9455a365-c992-41f8-8fe5-a7a27619672d",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 56,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 733.09,
-          "session_id": "2229858a-8a19-475a-95e1-9762d6e23504",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 57,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 638.46,
-          "session_id": "76797b32-79ec-43ea-9c93-c808fef4f404",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 58,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 576.64,
-          "session_id": "29e1729d-e85d-4ca8-bec6-40019d7d3e81",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 59,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 633.1,
-          "session_id": "7cc6e0e0-01b3-4543-a645-02b405c5047b",
-          "qos_status": "AVAILABLE",
-          "error": null
-        },
-        {
-          "request_index": 60,
-          "success": true,
-          "status_code": 201,
-          "establishment_time_ms": 631.05,
-          "session_id": "32fe68fd-7993-48d7-afbd-930bcd19393b",
-          "qos_status": "AVAILABLE",
-          "error": null
-        }
-      ]
-    },
-    {
-      "scenario": "TC_QoD_2_seq2_with_concurrent_load",
-      "total_requests": 60,
-      "successful": 52,
-      "failed": 8,
-      "success_rate_pct": 86.667,
-      "avg_establishment_ms": 4075.99,
-      "p95_establishment_ms": 5235.72,
-      "max_establishment_ms": 10068.24,
-      "min_establishment_ms": 381.36,
-      "p50_establishment_ms": 4118.14,
-      "stdev_establishment_ms": 1275.8,
-      "success_rate_ok": false,
       "establishment_time_ok": false,
       "requests": [
         {
           "request_index": 1,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 3369.59,
-          "session_id": "883c785a-ee49-4be5-abee-c9e6379c2dd9",
+          "establishment_time_ms": 1532.81,
+          "session_id": "f5341dce-056c-4512-9cb9-425db0e87707",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -742,8 +270,8 @@
           "request_index": 2,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 3718.32,
-          "session_id": "e59f9f47-7b21-4b6a-95fc-dfd050c92140",
+          "establishment_time_ms": 1593.59,
+          "session_id": "e5c442fb-b7da-4c02-8d98-d4505898b0e6",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -751,8 +279,8 @@
           "request_index": 3,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 3390.47,
-          "session_id": "873decb3-8f12-494c-a6a6-57fe90c656fd",
+          "establishment_time_ms": 1543.07,
+          "session_id": "7f9efbbd-c4e7-461d-8269-b0cbe07bbdbb",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -760,8 +288,8 @@
           "request_index": 4,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 3546.16,
-          "session_id": "f8b6670e-328a-41fe-9cb3-bbb5a679c978",
+          "establishment_time_ms": 1579.44,
+          "session_id": "7594a007-e23d-4370-994c-9011f3a9ea50",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -769,8 +297,8 @@
           "request_index": 5,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 3553.64,
-          "session_id": "659fc35e-1570-4a85-874e-4faf741dc566",
+          "establishment_time_ms": 1405.61,
+          "session_id": "e85cc6b2-e4b1-43d9-864e-732c78adc14d",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -778,8 +306,8 @@
           "request_index": 6,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 3668.91,
-          "session_id": "ed0c5495-a80b-42a9-820d-e53a7f9b91a8",
+          "establishment_time_ms": 1567.99,
+          "session_id": "58aebee6-ff76-43e1-a6a5-e0d655c5ee98",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -787,8 +315,8 @@
           "request_index": 7,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 3659.89,
-          "session_id": "eb0d7ea9-d761-4cb9-bf1e-d61fefbb229e",
+          "establishment_time_ms": 1388.88,
+          "session_id": "7e6f1f66-143a-4df9-9d28-ece587bb66a8",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -796,8 +324,8 @@
           "request_index": 8,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 3272.28,
-          "session_id": "1dfa069b-3bed-43e4-99f4-b7ea92b9c66e",
+          "establishment_time_ms": 1447.36,
+          "session_id": "9be0c477-308a-4478-a7e8-7ce90d8d8d88",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -805,8 +333,8 @@
           "request_index": 9,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 3612.82,
-          "session_id": "12a2b787-4c84-49d4-96fd-795df6f960f2",
+          "establishment_time_ms": 1613.26,
+          "session_id": "3b8e8749-b381-4aba-8368-0091777353ea",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -814,8 +342,8 @@
           "request_index": 10,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 3955.14,
-          "session_id": "80996167-c309-4104-bfc4-df8455500458",
+          "establishment_time_ms": 1405.33,
+          "session_id": "11a97a48-15d2-4ffc-a3b9-a6a43aae7638",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -823,8 +351,8 @@
           "request_index": 11,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 3575.15,
-          "session_id": "81a3eb37-6b7d-4a16-99f7-81ce3370931a",
+          "establishment_time_ms": 1524.84,
+          "session_id": "f374423e-1bce-4375-be57-864ebaaf7ce7",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -832,8 +360,8 @@
           "request_index": 12,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4002.64,
-          "session_id": "177f08a8-5aaa-4c08-b4e1-56b5d1bc7552",
+          "establishment_time_ms": 1520.1,
+          "session_id": "da63b44e-764b-41cc-a06f-7e5f301e5dfa",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -841,8 +369,8 @@
           "request_index": 13,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4730.81,
-          "session_id": "c87f4fce-7603-49c9-bf73-bf25e99d82f1",
+          "establishment_time_ms": 1520.99,
+          "session_id": "d259ded8-adbe-4d8d-a4f6-59ddce8cb135",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -850,8 +378,8 @@
           "request_index": 14,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 3732.5,
-          "session_id": "db054401-d209-4a11-ae45-0fbc0d31cb08",
+          "establishment_time_ms": 1627.43,
+          "session_id": "027ce517-2e7a-49cb-b573-a6b83e4fa296",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -859,8 +387,8 @@
           "request_index": 15,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4083.63,
-          "session_id": "1c47e826-1091-42ab-9cf2-2bcadb03c4c2",
+          "establishment_time_ms": 1504.51,
+          "session_id": "595fafb1-0318-4a3d-8e15-350cac7970a3",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -868,8 +396,8 @@
           "request_index": 16,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4384.46,
-          "session_id": "772479a8-577f-4e79-a4bf-d43b72bc859f",
+          "establishment_time_ms": 1462.31,
+          "session_id": "3c1e61f9-736f-4b3e-bdcd-b0fc53470bb5",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -877,8 +405,8 @@
           "request_index": 17,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 3758.99,
-          "session_id": "49af7b6a-e0ab-45f2-a8b9-6633492da6a4",
+          "establishment_time_ms": 1393.0,
+          "session_id": "bc2151dd-3e7c-4893-a7e4-f9208b38e8e6",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -886,8 +414,8 @@
           "request_index": 18,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 3921.65,
-          "session_id": "7c425452-8e69-415d-98da-1c0f02aeca13",
+          "establishment_time_ms": 1568.75,
+          "session_id": "3c1deb00-9219-4888-bc4e-d267879b705b",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -895,8 +423,8 @@
           "request_index": 19,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 3985.11,
-          "session_id": "b6d46b4e-0017-4ad9-b5ca-ad40b8a1b8e4",
+          "establishment_time_ms": 1607.22,
+          "session_id": "4ea78185-c7bb-49c0-96cc-96f305f59c1a",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -904,8 +432,8 @@
           "request_index": 20,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 3823.83,
-          "session_id": "3cbd81c1-d7c9-4e58-ae2b-ed7590ea35e3",
+          "establishment_time_ms": 1548.17,
+          "session_id": "562f0c41-34c3-4440-87e4-1ebec2a57c9d",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -913,8 +441,8 @@
           "request_index": 21,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4405.63,
-          "session_id": "4c1cf7a5-4f5f-4baa-9a82-da19eeb59e2f",
+          "establishment_time_ms": 1444.97,
+          "session_id": "cda7b654-3510-4626-bd7b-5277d4f5948d",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -922,8 +450,8 @@
           "request_index": 22,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4224.37,
-          "session_id": "5c74b721-3cf1-46f8-bd32-b9a9bedea9cd",
+          "establishment_time_ms": 1574.58,
+          "session_id": "188faeb9-0c72-43bf-9abe-23338dce3554",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -931,8 +459,8 @@
           "request_index": 23,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4127.69,
-          "session_id": "ec3cc891-3545-4cd7-bec3-7eba1795273e",
+          "establishment_time_ms": 1446.73,
+          "session_id": "45324b44-0f48-463e-9098-583950d2975c",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -940,8 +468,8 @@
           "request_index": 24,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 3840.01,
-          "session_id": "9cc28cd9-e8df-4123-9423-38fb92ae5940",
+          "establishment_time_ms": 1515.61,
+          "session_id": "f2b188b4-33d2-4fb3-823e-717f676b03ff",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -949,8 +477,8 @@
           "request_index": 25,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4140.42,
-          "session_id": "92cacaf2-8dba-422d-a600-f7219e7d4353",
+          "establishment_time_ms": 1467.77,
+          "session_id": "43e5dc8e-1dd4-41f7-882b-5440b120237c",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -958,8 +486,8 @@
           "request_index": 26,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4247.42,
-          "session_id": "7b853247-ee0c-420b-a90c-811839397880",
+          "establishment_time_ms": 1447.13,
+          "session_id": "99f5ac37-9e1d-4bdd-b9c2-7d46bb769b02",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -967,8 +495,8 @@
           "request_index": 27,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4198.55,
-          "session_id": "75df13fe-6fee-4d90-9a4e-17f99c3a952e",
+          "establishment_time_ms": 1429.7,
+          "session_id": "75d716df-69d4-494a-b7a8-f8dd287feca9",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -976,8 +504,8 @@
           "request_index": 28,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4048.67,
-          "session_id": "5f70db35-c2bb-4eac-8ac0-fcbc0032acc8",
+          "establishment_time_ms": 1519.95,
+          "session_id": "c95b4074-f5be-42a0-97f2-d74385df095b",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -985,8 +513,8 @@
           "request_index": 29,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4326.0,
-          "session_id": "36e487bc-fccf-40f8-a929-2637e50d97a7",
+          "establishment_time_ms": 1861.15,
+          "session_id": "8340210c-8ddb-4d1c-8b03-1046f4570600",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -994,8 +522,8 @@
           "request_index": 30,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4392.62,
-          "session_id": "6fc7afe9-dabb-4e0b-bfa0-7cee99dc90c5",
+          "establishment_time_ms": 1450.2,
+          "session_id": "1d74c495-f872-400c-9f0f-c6953f776644",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -1003,8 +531,8 @@
           "request_index": 31,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4392.5,
-          "session_id": "0aae2da4-7f01-4566-b978-3b4313d421c8",
+          "establishment_time_ms": 1543.98,
+          "session_id": "60d2e769-97e0-41fd-9983-2f3360a3dafe",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -1012,8 +540,8 @@
           "request_index": 32,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4229.81,
-          "session_id": "d0627e82-37e6-46f9-844e-fb5ff43b61b6",
+          "establishment_time_ms": 1430.12,
+          "session_id": "240ee672-ba83-4807-b51f-e4d74a6bb349",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -1021,8 +549,8 @@
           "request_index": 33,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 5182.67,
-          "session_id": "f462f778-f77b-41aa-8a76-1812e8ec9627",
+          "establishment_time_ms": 1643.26,
+          "session_id": "691630f2-597b-435a-bb99-f37c684ea9c9",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -1030,8 +558,8 @@
           "request_index": 34,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4169.9,
-          "session_id": "a6d464da-05c2-41f2-9b9b-50ae72371945",
+          "establishment_time_ms": 1480.48,
+          "session_id": "d04f25b6-327a-4723-a213-cdba66806652",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -1039,8 +567,8 @@
           "request_index": 35,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4534.51,
-          "session_id": "d14175e3-c132-4296-8103-418a65d9aedf",
+          "establishment_time_ms": 1499.82,
+          "session_id": "f88f00d9-0741-40b9-8f50-7c8f57390ed4",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -1048,8 +576,8 @@
           "request_index": 36,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4675.94,
-          "session_id": "f58f1a39-d6e7-4770-8b76-ce3747a22b3b",
+          "establishment_time_ms": 1525.84,
+          "session_id": "7c49b0d7-d128-4362-9a0d-7eb8d2a3559e",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -1057,8 +585,8 @@
           "request_index": 37,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4422.31,
-          "session_id": "6c4462b6-64ec-496b-ad1e-4cf68364bba7",
+          "establishment_time_ms": 1545.63,
+          "session_id": "f8a07833-7e79-47ff-8dc6-9a5486e2d0ea",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -1066,8 +594,8 @@
           "request_index": 38,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 1905.68,
-          "session_id": "560f2e59-db3f-459a-bdf0-c478c80af31e",
+          "establishment_time_ms": 1473.39,
+          "session_id": "2e939e57-ffa8-4d23-9dc7-eaf23674aede",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -1075,8 +603,8 @@
           "request_index": 39,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4189.37,
-          "session_id": "7637a055-f165-457d-a168-8c043c954e8c",
+          "establishment_time_ms": 1562.53,
+          "session_id": "877f1ec8-4d80-46b7-aa06-0c4ec00f5e38",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -1084,8 +612,8 @@
           "request_index": 40,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4625.3,
-          "session_id": "581aac37-0a0d-4b78-ba44-68ef22b98783",
+          "establishment_time_ms": 1532.37,
+          "session_id": "7950b3c5-669a-4a40-8e24-6945d77b8c41",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -1093,8 +621,8 @@
           "request_index": 41,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4465.36,
-          "session_id": "9a903742-239a-4c0b-8e01-ebc64bb2d774",
+          "establishment_time_ms": 1518.16,
+          "session_id": "80a6a663-7532-4eed-aa62-51dc91480675",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -1102,8 +630,8 @@
           "request_index": 42,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4819.42,
-          "session_id": "0df26a4b-62ef-4079-8c8f-6873233c30fa",
+          "establishment_time_ms": 1723.72,
+          "session_id": "0cded656-e0b0-43b8-a146-4f241e2cad7c",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -1111,8 +639,8 @@
           "request_index": 43,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4232.8,
-          "session_id": "ee857262-45f1-4e0d-be00-28820184a286",
+          "establishment_time_ms": 1469.4,
+          "session_id": "fc277abe-c4b0-40d1-b54f-f1900fe79d52",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -1120,8 +648,8 @@
           "request_index": 44,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 5218.08,
-          "session_id": "2f86bed6-7d15-4b94-a391-cbc84cedb1f5",
+          "establishment_time_ms": 1588.84,
+          "session_id": "7c6bfc48-876c-46f0-885a-d567cef7e925",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -1129,8 +657,8 @@
           "request_index": 45,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 5503.32,
-          "session_id": "e60745f9-2c5b-429b-9ef5-96a57bc89e96",
+          "establishment_time_ms": 1466.05,
+          "session_id": "d9206592-c6d7-4066-b565-3859fe2157f4",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -1138,8 +666,8 @@
           "request_index": 46,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 5227.9,
-          "session_id": "0fbedbf4-1fae-4541-97e1-715c70dc1594",
+          "establishment_time_ms": 1533.11,
+          "session_id": "d46b7013-0f45-404d-9ab4-a33a67a573fb",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -1147,8 +675,8 @@
           "request_index": 47,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4810.26,
-          "session_id": "fc2da097-ae2f-4656-8615-0b8bd68a1a1a",
+          "establishment_time_ms": 1465.7,
+          "session_id": "58e9521b-0d91-4b10-9663-491f8b0ebdbe",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -1156,8 +684,8 @@
           "request_index": 48,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4252.89,
-          "session_id": "f54c82c5-c5f6-440d-9e12-8c06b9df79f6",
+          "establishment_time_ms": 1440.85,
+          "session_id": "fa549955-a2ac-424a-aab2-8938eaffd54a",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -1165,8 +693,8 @@
           "request_index": 49,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 5384.38,
-          "session_id": "7389cc88-74db-4f89-a8d5-478763fa9040",
+          "establishment_time_ms": 1527.61,
+          "session_id": "33360ad2-bf09-4a60-a7ca-09195a97a285",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -1174,8 +702,8 @@
           "request_index": 50,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 5022.85,
-          "session_id": "b41c9642-1d99-4afd-bf73-885bbe710c86",
+          "establishment_time_ms": 1459.06,
+          "session_id": "aa90100b-28b9-4082-8aae-5a19a5f1ae19",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -1183,8 +711,8 @@
           "request_index": 51,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 3908.88,
-          "session_id": "f3dc9e12-cc22-45c9-ab64-afe2caee0e03",
+          "establishment_time_ms": 1510.72,
+          "session_id": "125d69aa-feb4-4c52-b614-a241b9eb4b9b",
           "qos_status": "AVAILABLE",
           "error": null
         },
@@ -1192,82 +720,82 @@
           "request_index": 52,
           "success": true,
           "status_code": 201,
-          "establishment_time_ms": 4009.42,
-          "session_id": "2e3b6696-27d0-40d8-a325-a392c7c39270",
+          "establishment_time_ms": 1466.31,
+          "session_id": "20d0b4fd-e71b-475c-b921-bcddeb134ad2",
           "qos_status": "AVAILABLE",
           "error": null
         },
         {
           "request_index": 53,
-          "success": false,
-          "status_code": 0,
-          "establishment_time_ms": 10068.24,
-          "session_id": null,
-          "qos_status": null,
-          "error": "HTTPConnectionPool(host='10.220.2.50', port=8584): Read timed out. (read timeout=10)"
+          "success": true,
+          "status_code": 201,
+          "establishment_time_ms": 1530.02,
+          "session_id": "3c0df6e8-e307-4735-91f6-0cc761abcbe2",
+          "qos_status": "AVAILABLE",
+          "error": null
         },
         {
           "request_index": 54,
-          "success": false,
-          "status_code": 409,
-          "establishment_time_ms": 442.2,
-          "session_id": null,
-          "qos_status": null,
-          "error": "{'detail': {'status': 409, 'code': 'CONFLICT', 'message': 'Conflict with an existing session for the same device.'}}"
+          "success": true,
+          "status_code": 201,
+          "establishment_time_ms": 1513.89,
+          "session_id": "5eeaece4-3593-4f93-968c-b3d6c3d2ad32",
+          "qos_status": "AVAILABLE",
+          "error": null
         },
         {
           "request_index": 55,
-          "success": false,
-          "status_code": 409,
-          "establishment_time_ms": 4088.44,
-          "session_id": null,
-          "qos_status": null,
-          "error": "{'detail': {'status': 409, 'code': 'CONFLICT', 'message': 'Conflict with an existing session for the same device.'}}"
+          "success": true,
+          "status_code": 201,
+          "establishment_time_ms": 1677.02,
+          "session_id": "e7d2864e-e4e6-44ce-83af-571ad403cec5",
+          "qos_status": "AVAILABLE",
+          "error": null
         },
         {
           "request_index": 56,
-          "success": false,
-          "status_code": 409,
-          "establishment_time_ms": 4076.36,
-          "session_id": null,
-          "qos_status": null,
-          "error": "{'detail': {'status': 409, 'code': 'CONFLICT', 'message': 'Conflict with an existing session for the same device.'}}"
+          "success": true,
+          "status_code": 201,
+          "establishment_time_ms": 1450.8,
+          "session_id": "abd504f0-6e91-4d3f-991a-9a4377865a0e",
+          "qos_status": "AVAILABLE",
+          "error": null
         },
         {
           "request_index": 57,
-          "success": false,
-          "status_code": 409,
-          "establishment_time_ms": 438.9,
-          "session_id": null,
-          "qos_status": null,
-          "error": "{'detail': {'status': 409, 'code': 'CONFLICT', 'message': 'Conflict with an existing session for the same device.'}}"
+          "success": true,
+          "status_code": 201,
+          "establishment_time_ms": 1567.54,
+          "session_id": "988f1c8c-ac61-41e2-a8fa-2ba91254c78e",
+          "qos_status": "AVAILABLE",
+          "error": null
         },
         {
           "request_index": 58,
-          "success": false,
-          "status_code": 409,
-          "establishment_time_ms": 4074.14,
-          "session_id": null,
-          "qos_status": null,
-          "error": "{'detail': {'status': 409, 'code': 'CONFLICT', 'message': 'Conflict with an existing session for the same device.'}}"
+          "success": true,
+          "status_code": 201,
+          "establishment_time_ms": 1480.52,
+          "session_id": "944f4525-2f14-4511-a9b5-5310e607b6a0",
+          "qos_status": "AVAILABLE",
+          "error": null
         },
         {
           "request_index": 59,
-          "success": false,
-          "status_code": 409,
-          "establishment_time_ms": 381.36,
-          "session_id": null,
-          "qos_status": null,
-          "error": "{'detail': {'status': 409, 'code': 'CONFLICT', 'message': 'Conflict with an existing session for the same device.'}}"
+          "success": true,
+          "status_code": 201,
+          "establishment_time_ms": 1480.49,
+          "session_id": "efa51a9e-0208-4707-bd6b-010230fed458",
+          "qos_status": "AVAILABLE",
+          "error": null
         },
         {
           "request_index": 60,
-          "success": false,
-          "status_code": 409,
-          "establishment_time_ms": 4108.59,
-          "session_id": null,
-          "qos_status": null,
-          "error": "{'detail': {'status': 409, 'code': 'CONFLICT', 'message': 'Conflict with an existing session for the same device.'}}"
+          "success": true,
+          "status_code": 201,
+          "establishment_time_ms": 1519.57,
+          "session_id": "9bddf06b-3e74-47b6-a9e1-457473950bb2",
+          "qos_status": "AVAILABLE",
+          "error": null
         }
       ]
     }

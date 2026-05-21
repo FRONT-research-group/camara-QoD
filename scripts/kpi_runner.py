@@ -40,6 +40,12 @@ RPI_SSH_KEY = os.path.expanduser("~/.ssh/front_ecdsa")  # SSH private key path
 # iPerf3 server (must be reachable from RPi through the 5G network)
 IPERF_SERVER = "10.220.2.166"
 
+# Optional SSH access to the iPerf3 server so the script can auto-start
+# the background traffic server instance on port 5202.
+# Set IPERF_SERVER_SSH_USER = None to skip auto-start (you must start it manually).
+IPERF_SERVER_SSH_USER = None          # e.g. "ubuntu" or "pi"
+IPERF_SERVER_SSH_KEY  = os.path.expanduser("~/.ssh/front_ecdsa")
+
 # UE identity (RPi IP as seen by the 5G network)
 UE_PUBLIC_IP  = "10.45.0.85"
 UE_PRIVATE_IP = "10.45.0.85"
@@ -52,7 +58,7 @@ UE_PRIVATE_IP = "10.45.0.85"
 APP_SERVER_CIDR = "0.0.0.0/0"
 
 # QoS profile to test: QOS_E | QOS_S | QOS_M | QOS_L
-QOS_PROFILE = "QOS_S"
+QOS_PROFILE = "QOS_M"
 
 # ── Thresholds: only DL and UL throughput ────────────────────
 # Values match the profile definitions in the camara-QoD README.
@@ -76,18 +82,17 @@ IPERF_BG_PORT = 5202
 
 # ── TC_QoD_1 settings ────────────────────────────────────────
 TC1_DURATION_SEC     = 120  # measurement window per scenario (seconds)
-TC1_IPERF_DURATION   = 10    # seconds per iperf3 sample (DL and UL each)
-TC1_SAMPLE_INTERVAL  = 5    # seconds to wait between consecutive samples
-TC1_IPERF_BITRATE    = "10M" # bitrate per background traffic stream (per step)
-TC1_NUM_BG_STREAMS   = 3    # total number of background streams (= total steps)
-TC1_BG_STEP_STREAMS  = 1    # streams added per step (spec: step increase)
-TC1_BG_STEP_INTERVAL = 25   # seconds between each step increase
+TC1_IPERF_DURATION   = 5     # seconds per iperf3 sample (DL and UL each) — 5s gives ~7 samples/window
+TC1_SAMPLE_INTERVAL  = 2    # seconds to wait between consecutive samples
+TC1_IPERF_BITRATE    = "8M"  # bitrate per background traffic stream — 2×8M=16M exceeds 10M cap without saturating UL
+TC1_NUM_BG_STREAMS   = 2    # parallel background streams launched at start of measurement
 
 # ── TC_QoD_2 settings ────────────────────────────────────────
-TC2_NUM_REQUESTS       = 60    # number of sequential main UE QoD API requests
-TC2_SEQUENTIAL_DELAY   = 1.0   # seconds between sequential requests
-TC2_CONCURRENT_HZ      = 10.0  # concurrent API call frequency per spec (+10 Hz step)
-TC2_CONCURRENT_WORKERS = 10    # worker threads — enough to sustain 10 Hz total
+TC2_NUM_REQUESTS        = 60     # sequential main UE requests per step
+TC2_SEQUENTIAL_DELAY    = 1.0    # seconds between sequential requests
+TC2_CONCURRENT_STEP_HZ  = 10.0   # concurrent load increment per step (spec: +10 Hz)
+TC2_MAX_CONCURRENT_HZ   = 30.0   # stop stepping even if KPIs still pass (safety cap)
+TC2_WORKERS_PER_10HZ    = 5      # stress worker threads per 10 Hz block
 
 # ── Output ────────────────────────────────────────────────────
 REPORT_PATH     = "results/kpi_report.json"
@@ -148,6 +153,7 @@ class RetainabilityResult:
 @dataclass
 class ApiKpiResult:
     scenario: str
+    concurrent_hz: float         # concurrent background load applied during this step
     total_requests: int
     successful: int
     failed: int
@@ -248,7 +254,7 @@ def collect_sample(ssh: SSHRunner, server: str, qos_thresholds: dict) -> Sample:
     # Downlink: server → RPi  (reverse flag)
     dl = run_iperf_sample(ssh, server, duration=TC1_IPERF_DURATION, reverse=True)
     # Brief pause so the iperf3 server closes the DL connection before UL starts
-    time.sleep(2)
+    time.sleep(1)
     # Uplink:   RPi → server  (normal)
     ul = run_iperf_sample(ssh, server, duration=TC1_IPERF_DURATION, reverse=False)
 
@@ -271,6 +277,10 @@ def collect_sample(ssh: SSHRunner, server: str, qos_thresholds: dict) -> Sample:
 # ─────────────────────────────────────────────────────────────
 # QoD API client
 # ─────────────────────────────────────────────────────────────
+
+# Persistent HTTP session — reuses TCP connections across all QoD calls,
+# eliminating per-request handshake overhead (~30-80 ms each).
+_http = requests.Session()
 
 def build_session_payload(
     ue_public_ip: str,
@@ -301,7 +311,7 @@ def create_qod_session(
     """POST /sessions and measure establishment time."""
     t0 = time.perf_counter()
     try:
-        resp = requests.post(sessions_url, json=payload, timeout=10)
+        resp = _http.post(sessions_url, json=payload, timeout=10)
         t1   = time.perf_counter()
         elapsed_ms = (t1 - t0) * 1000.0
 
@@ -338,7 +348,7 @@ def create_qod_session(
 def delete_qod_session(session_id: str, sessions_url: str = QOD_SESSIONS):
     """DELETE /sessions/{session_id} to clean up after each test."""
     try:
-        resp = requests.delete(f"{sessions_url}/{session_id}", timeout=5)
+        resp = _http.delete(f"{sessions_url}/{session_id}", timeout=30)
         if resp.status_code == 204:
             print(f"[QoD] Session {session_id} deleted")
         else:
@@ -361,7 +371,7 @@ def poll_qod_session_status(
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
-            resp = requests.get(f"{sessions_url}/{session_id}", timeout=5)
+            resp = _http.get(f"{sessions_url}/{session_id}", timeout=5)
             if resp.status_code == 200:
                 status = resp.json().get("qosStatus", "")
                 print(f"[QoD] qosStatus = {status}")
@@ -381,6 +391,57 @@ def poll_qod_session_status(
 # Background traffic (iPerf3 on RPi)
 # ─────────────────────────────────────────────────────────────
 
+def ensure_bg_server_running(port: int = IPERF_BG_PORT) -> bool:
+    """
+    If IPERF_SERVER_SSH_USER is set, SSH into the iperf3 server and start
+    a background iperf3 server instance on the given port if not already running.
+    Returns True if the server is (or becomes) available, False otherwise.
+    """
+    if not IPERF_SERVER_SSH_USER:
+        return True  # assume it's running; check_bg_server_reachable will catch it
+
+    srv_ssh = SSHRunner(IPERF_SERVER, IPERF_SERVER_SSH_USER, IPERF_SERVER_SSH_KEY)
+    try:
+        srv_ssh.connect()
+        # Check if already listening
+        _, _, code = srv_ssh.run(f"ss -tlnp | grep ':{port} '|| ss -ulnp | grep ':{port} '", timeout=5)
+        if code == 0:
+            print(f"[BG Server] iperf3 already listening on port {port} ✅")
+            return True
+        # Not running — start it
+        srv_ssh.run_background(f"iperf3 -s -p {port} -D --logfile /tmp/iperf3-bg-{port}.log")
+        time.sleep(1)
+        # Verify it started
+        _, _, code = srv_ssh.run(f"ss -tlnp | grep ':{port} ' || ss -ulnp | grep ':{port} '", timeout=5)
+        if code == 0:
+            print(f"[BG Server] Started iperf3 -s -p {port} on {IPERF_SERVER} ✅")
+            return True
+        print(f"[BG Server] ⚠️  Failed to start iperf3 on port {port} — check {IPERF_SERVER}")
+        return False
+    except Exception as e:
+        print(f"[BG Server] ⚠️  SSH to {IPERF_SERVER} failed: {e}")
+        return False
+    finally:
+        srv_ssh.disconnect()
+
+
+def check_bg_server_reachable(ssh: SSHRunner, server: str, port: int = IPERF_BG_PORT) -> bool:
+    """
+    Quick 2-second UDP probe to verify the BG iperf3 server is reachable.
+    Returns True if the server responds, False if connection is refused/timeout.
+    """
+    cmd = (
+        f"iperf3 -c {server} -B {UE_PRIVATE_IP} -p {port}"
+        f" -t 2 -b 1M -u -J --connect-timeout 3000"
+    )
+    _, stderr, code = ssh.run(cmd, timeout=10)
+    if code != 0:
+        print(f"[BG Traffic] ⚠️  Server unreachable on port {port}: {stderr.strip()[:100]}")
+        print(f"[BG Traffic] ⚠️  Start it on {server} with:  iperf3 -s -p {port} -D")
+        return False
+    return True
+
+
 def start_background_traffic(
     ssh: SSHRunner,
     server: str,
@@ -391,17 +452,18 @@ def start_background_traffic(
 ) -> None:
     """
     Start a single iPerf3 UDP session with num_streams parallel streams (-P)
-    on the RPi to saturate radio capacity.  Using -P keeps everything in one
-    iperf3 session so the server is never "busy" with a second client.
+    on the RPi to saturate radio capacity.  Uses -R (reverse) so the server
+    sends to the RPi (DL direction) — avoids competing with the UL measurement
+    probe which would otherwise starve to 0 on limited 5G UL capacity.
     Runs non-blocking (fire and forget).
     """
     total_bitrate = f"{int(bitrate.rstrip('MmKk')) * num_streams}M"
     cmd = (
         f"iperf3 -c {server} -B {UE_PRIVATE_IP} -p {port}"
-        f" -t {duration} -b {bitrate} -P {num_streams} -u"
+        f" -t {duration} -b {bitrate} -P {num_streams} -u -R"
     )
     ssh.run_background(cmd)
-    print(f"[BG Traffic] Started: -P {num_streams} streams × {bitrate} = {total_bitrate} total (port={port})")
+    print(f"[BG Traffic] Started: -P {num_streams} streams × {bitrate} = {total_bitrate} total DL (port={port})")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -447,21 +509,24 @@ def compute_retainability(scenario: str, samples: List[Sample]) -> Retainability
     )
 
 
-def compute_api_kpis(scenario: str, results: List[ApiResult]) -> ApiKpiResult:
+def compute_api_kpis(scenario: str, results: List[ApiResult], concurrent_hz: float = 0.0) -> ApiKpiResult:
     total = len(results)
     succ  = sum(1 for r in results if r.success)
-    times = [r.establishment_time_ms for r in results]
+    # Establishment time is only meaningful for SUCCESSFUL requests (spec §TC_QoD_2).
+    # Failed requests reflect error-handling latency, not provisioning performance.
+    succ_times = [r.establishment_time_ms for r in results if r.success]
 
     success_rate = round((succ / total * 100), 3) if total > 0 else 0.0
-    avg_t  = round(statistics.mean(times), 2) if times else 0.0
-    min_t  = round(min(times), 2) if times else 0.0
-    p50_t  = percentile(times, 50)
-    p95_t  = percentile(times, 95)
-    max_t  = round(max(times), 2) if times else 0.0
-    std_t  = round(statistics.stdev(times), 2) if len(times) > 1 else 0.0
+    avg_t  = round(statistics.mean(succ_times), 2) if succ_times else 0.0
+    min_t  = round(min(succ_times), 2) if succ_times else 0.0
+    p50_t  = percentile(succ_times, 50)
+    p95_t  = percentile(succ_times, 95)
+    max_t  = round(max(succ_times), 2) if succ_times else 0.0
+    std_t  = round(statistics.stdev(succ_times), 2) if len(succ_times) > 1 else 0.0
 
     return ApiKpiResult(
         scenario=scenario,
+        concurrent_hz=concurrent_hz,
         total_requests=total,
         successful=succ,
         failed=total - succ,
@@ -531,39 +596,29 @@ def run_tc_qod_1_scenario(
             else:
                 print(f"[TC_QoD_1] WARNING: QoD session failed → {qod_result.error}")
 
-        # ── Step 2 & 3: Incremental BG traffic + measurement loop ──
-        # Per ENVELOPE spec: step increase from 0 → N streams to saturate radio.
-        # Each step adds TC1_BG_STEP_STREAMS streams every TC1_BG_STEP_INTERVAL seconds.
-        active_bg_streams = 0
-        next_bg_step_at   = 0.0   # set when loop starts
-
+        # ── Step 2 & 3: BG traffic + measurement loop ─────────
         print(f"\n[TC_QoD_1] Measurement started — window = {TC1_DURATION_SEC}s\n")
         print(f"  {'#':>4}  {'Status':<6}  {'DL (Mbps)':>10}  {'UL (Mbps)':>10}  "
               f"{'DL threshold':>14}  {'UL threshold':>14}")
         print(f"  {'-'*4}  {'-'*6}  {'-'*10}  {'-'*10}  {'-'*14}  {'-'*14}")
 
-        loop_start      = time.time()
-        end_time        = loop_start + TC1_DURATION_SEC
-        next_bg_step_at = loop_start   # first step fires immediately at loop start
-        sample_num      = 0
+        loop_start = time.time()
+        end_time   = loop_start + TC1_DURATION_SEC
+        sample_num = 0
+
+        # Start BG traffic at full rate before the first sample
+        if enable_background:
+            if check_bg_server_reachable(ssh, IPERF_SERVER):
+                remaining = TC1_DURATION_SEC + 5
+                start_background_traffic(
+                    ssh, IPERF_SERVER, TC1_IPERF_BITRATE, remaining, TC1_NUM_BG_STREAMS
+                )
+                print(f"  [▶ BG] {TC1_NUM_BG_STREAMS} streams × {TC1_IPERF_BITRATE} DL — waiting 3s to ramp up")
+                time.sleep(3)
+            else:
+                print(f"[TC_QoD_1] ⚠️  BG traffic skipped — measurements will not reflect congestion")
 
         while time.time() < end_time:
-            # ── Add/increase BG traffic step if due ──────────────
-            if enable_background and active_bg_streams < TC1_NUM_BG_STREAMS and time.time() >= next_bg_step_at:
-                # Kill any running background iperf3 on the BG port, then
-                # relaunch with more parallel streams (-P) so the server
-                # sees only one client session at a time.
-                ssh.run(f"pkill -f 'iperf3.*{IPERF_BG_PORT}' || true", timeout=5)
-                time.sleep(1)
-                active_bg_streams += TC1_BG_STEP_STREAMS
-                remaining = max(10, int(end_time - time.time()) + 5)
-                start_background_traffic(
-                    ssh, IPERF_SERVER, TC1_IPERF_BITRATE, remaining, active_bg_streams
-                )
-                next_bg_step_at += TC1_BG_STEP_INTERVAL
-                print(f"\n  [▶ BG step] {active_bg_streams}/{TC1_NUM_BG_STREAMS} parallel streams "
-                      f"@ {TC1_IPERF_BITRATE} each — waiting 3s to ramp up")
-                time.sleep(3)
 
             sample = collect_sample(ssh, IPERF_SERVER, thresholds)
             samples.append(sample)
@@ -600,16 +655,15 @@ def run_tc_qod_1_scenario(
             f"> cap {cap['max_dl_mbps']} Mbps"
         )
     elif not enable_qod and enable_background:
-        # S2 — Uncapped under BG traffic: without QoD, both DL and UL should
-        # remain above the QoS profile cap (confirming no accidental shaping).
-        result.scenario_check_ok   = (
-            result.avg_dl_mbps > cap["max_dl_mbps"]
-            and result.avg_ul_mbps > cap["max_ul_mbps"]
-        )
+        # S2 — Uncapped under BG traffic: without QoD, DL should exceed the
+        # QoS profile cap (confirming no accidental DL shaping).  UL is excluded
+        # because 5G UL capacity is naturally asymmetric and may not exceed the
+        # cap even without any policy enforcement.
+        result.scenario_check_ok   = result.avg_dl_mbps > cap["max_dl_mbps"]
         result.scenario_check_desc = (
-            f"Uncapped under BG traffic: avg DL {result.avg_dl_mbps} Mbps"
-            f" & avg UL {result.avg_ul_mbps} Mbps"
+            f"Uncapped DL under BG traffic: avg DL {result.avg_dl_mbps:.2f} Mbps"
             f" > {cap['max_dl_mbps']} Mbps cap"
+            f" (UL {result.avg_ul_mbps:.2f} Mbps — asymmetric, not checked)"
         )
     else:
         # S3 — QoD active: retainability must reach threshold
@@ -650,7 +704,7 @@ def _stress_worker(stop_event: threading.Event, rate_hz: float):
     )
     while not stop_event.is_set():
         try:
-            requests.post(QOD_SESSIONS, json=payload, timeout=5)
+            _http.post(QOD_SESSIONS, json=payload, timeout=5)
         except Exception:
             pass
         time.sleep(interval)
@@ -658,22 +712,25 @@ def _stress_worker(stop_event: threading.Event, rate_hz: float):
 
 def run_tc_qod_2(
     scenario_name: str,
-    with_concurrent_load: bool,
+    concurrent_hz: float = 0.0,
 ) -> ApiKpiResult:
 
+    load_desc = f"{int(concurrent_hz)} Hz concurrent" if concurrent_hz > 0 else "no concurrent load"
     print(f"\n{'='*60}")
     print(f"[TC_QoD_2] Scenario : {scenario_name}")
-    print(f"           Concurrent load: {'YES — ' + str(TC2_CONCURRENT_HZ) + ' Hz' if with_concurrent_load else 'NO'}")
+    print(f"           Load     : {load_desc}")
     print(f"{'='*60}")
 
     stop_event    = threading.Event()
     stress_threads: List[threading.Thread] = []
 
     try:
-        # ── Step 1: Start stress workers if needed ────────────
-        if with_concurrent_load:
-            per_worker_hz = TC2_CONCURRENT_HZ / TC2_CONCURRENT_WORKERS
-            for _ in range(TC2_CONCURRENT_WORKERS):
+        # ── Step 1: Start stress workers scaled to requested Hz ───
+        if concurrent_hz > 0:
+            # Scale workers: TC2_WORKERS_PER_10HZ threads per 10 Hz block
+            num_workers   = max(1, round(concurrent_hz / 10.0 * TC2_WORKERS_PER_10HZ))
+            per_worker_hz = concurrent_hz / num_workers
+            for _ in range(num_workers):
                 t = threading.Thread(
                     target=_stress_worker,
                     args=(stop_event, per_worker_hz),
@@ -681,8 +738,8 @@ def run_tc_qod_2(
                 )
                 t.start()
                 stress_threads.append(t)
-            print(f"[TC_QoD_2] {TC2_CONCURRENT_WORKERS} stress workers started "
-                  f"({per_worker_hz:.1f} Hz each = {TC2_CONCURRENT_HZ} Hz total)")
+            print(f"[TC_QoD_2] {num_workers} stress workers @ {per_worker_hz:.1f} Hz each "
+                  f"= {concurrent_hz:.0f} Hz total")
             time.sleep(1)  # let stress ramp up before main requests
 
         # ── Step 2: Sequential main UE requests ───────────────
@@ -699,6 +756,26 @@ def run_tc_qod_2(
             )
             r             = create_qod_session(payload)
             r.request_index = i + 1
+
+            # If the API returned PENDING, poll until AVAILABLE and add that
+            # wait time — establishment time = full provisioning time per spec.
+            if r.success and r.session_id:
+                status_upper = str(r.qos_status or "").upper()
+                if "PENDING" in status_upper or "AVAILABLE" not in status_upper:
+                    t_poll = time.perf_counter()
+                    final_status = poll_qod_session_status(
+                        r.session_id, timeout=30.0, poll_interval=0.5
+                    )
+                    r.establishment_time_ms = round(
+                        r.establishment_time_ms + (time.perf_counter() - t_poll) * 1000.0, 2
+                    )
+                    r.qos_status = final_status
+                    r.success    = bool(
+                        final_status
+                        and "AVAILABLE" in str(final_status).upper()
+                        and "UNAVAILABLE" not in str(final_status).upper()
+                    )
+
             results.append(r)
 
             verdict = "✅ OK " if r.success else "❌ FAIL"
@@ -723,7 +800,7 @@ def run_tc_qod_2(
             t.join(timeout=2)
 
     # ── Step 4: Compute KPIs ──────────────────────────────────
-    kpi     = compute_api_kpis(scenario_name, results)
+    kpi     = compute_api_kpis(scenario_name, results, concurrent_hz=concurrent_hz)
     sr_v    = "✅ PASS" if kpi.success_rate_ok else "❌ FAIL"
     et_v    = "✅ PASS" if kpi.establishment_time_ok else "❌ FAIL"
 
@@ -776,7 +853,7 @@ def save_report(
         "scenario_check_ok", "scenario_check_desc", "threshold_met",
     ]
     tc2_fields = [
-        "test_case", "scenario",
+        "test_case", "scenario", "concurrent_hz",
         "total_requests", "successful", "failed", "success_rate_pct",
         "avg_establishment_ms", "min_establishment_ms", "p50_establishment_ms",
         "p95_establishment_ms", "max_establishment_ms", "stdev_establishment_ms",
@@ -811,6 +888,7 @@ def save_report(
         rows.append({
             "test_case":              "TC_QoD_2",
             "scenario":               r.scenario,
+            "concurrent_hz":          r.concurrent_hz,
             "total_requests":         r.total_requests,
             "successful":             r.successful,
             "failed":                 r.failed,
@@ -849,6 +927,9 @@ def main():
     # Connect SSH to the RPi once and reuse for all tests
     ssh = SSHRunner(RPI_HOST, RPI_USER, RPI_SSH_KEY)
     ssh.connect()
+
+    # Ensure the BG iperf3 server is running on port 5202
+    ensure_bg_server_running(IPERF_BG_PORT)
 
     tc1_results: List[RetainabilityResult] = []
     tc2_results: List[ApiKpiResult]        = []
@@ -891,16 +972,35 @@ def main():
             time.sleep(10)
 
         # ────────────────────────────────────────────────────
-        # TC_QoD_2 — Establishment Time + Success Rate
+        # TC_QoD_2 — Step-increase scalability test
+        # Step 0: 0 Hz (baseline), Step 1: +10 Hz, Step 2: +20 Hz ...
+        # Stops when KPIs fail OR TC2_MAX_CONCURRENT_HZ is reached.
         # ────────────────────────────────────────────────────
-        tc2_results.append(
-            run_tc_qod_2("TC_QoD_2_seq1_no_concurrent_load",   with_concurrent_load=False)
-        )
-        print("\n[Cooldown] 10s between TC_QoD_2 sequences...")
-        time.sleep(10)
-        tc2_results.append(
-            run_tc_qod_2("TC_QoD_2_seq2_with_concurrent_load", with_concurrent_load=True)
-        )
+        concurrent_hz = 0.0
+        step          = 0
+        while True:
+            label = (
+                f"step{step}_baseline_0Hz"
+                if concurrent_hz == 0
+                else f"step{step}_{int(concurrent_hz)}Hz_concurrent"
+            )
+            result = run_tc_qod_2(label, concurrent_hz=concurrent_hz)
+            tc2_results.append(result)
+
+            kpis_ok = result.success_rate_ok and result.establishment_time_ok
+            if not kpis_ok:
+                print(f"\n[TC_QoD_2] ❌ KPIs failed at {concurrent_hz:.0f} Hz — "
+                      f"scalability limit reached")
+                break
+
+            if concurrent_hz >= TC2_MAX_CONCURRENT_HZ:
+                print(f"\n[TC_QoD_2] ✅ All steps passed (0 → {int(concurrent_hz)} Hz)")
+                break
+
+            concurrent_hz += TC2_CONCURRENT_STEP_HZ
+            step          += 1
+            print(f"\n[Cooldown] 10s before step {step} ({int(concurrent_hz)} Hz)...")
+            time.sleep(10)
 
     finally:
         ssh.disconnect()
@@ -926,14 +1026,15 @@ def main():
     print(f"  TC_QoD_2 — KPI: Success Rate (>= {SUCCESS_RATE_THRESHOLD_PCT}%)  "
           f"& Est. Time (< {ESTABLISHMENT_TIME_THRESHOLD_MS:.0f} ms)")
     print(f"{'─'*60}")
-    print(f"  {'Scenario':<40}  {'SR':>8}  {'SR?':>6}  {'MaxET':>8}  {'ET?'}")
-    print(f"  {'-'*40}  {'-'*8}  {'-'*6}  {'-'*8}  {'-'*6}")
+    print(f"  {'Scenario':<40}  {'Load':>6}  {'SR':>8}  {'SR?':>4}  {'MaxET':>8}  {'ET?'}")
+    print(f"  {'-'*40}  {'-'*6}  {'-'*8}  {'-'*4}  {'-'*8}  {'-'*4}")
     for r in tc2_results:
         sr_v = "✅" if r.success_rate_ok else "❌"
         et_v = "✅" if r.establishment_time_ok else "❌"
         print(
             f"  {r.scenario:<40}  "
-            f"{r.success_rate_pct:>7.3f}%  {sr_v:>6}  "
+            f"{r.concurrent_hz:>5.0f}Hz  "
+            f"{r.success_rate_pct:>7.3f}%  {sr_v:>4}  "
             f"{r.max_establishment_ms:>7.1f}ms  {et_v}"
         )
 
