@@ -570,7 +570,7 @@ def run_tc_qod_1_scenario(
             sample_num += 1
 
             if not enable_qod:
-                status = "✅ BASE"   # no QoD session → cap not expected → baseline
+                status = "✅ OK"   # no QoD session → cap not expected → baseline
             else:
                 status = "✅ OK  " if sample.qos_ok else "❌ FAIL"
             print(
