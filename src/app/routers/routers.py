@@ -47,12 +47,12 @@ router = APIRouter()
 
     ## Available QoS Profiles
 
-    | Profile | Download BW | Upload BW | Media Type |
-
-    | `QOS_E` | 3 Mbps      | 3 Mbps    | VIDEO |
-    | `QOS_L` | 40 Mbps     | 40 Mbps   | AUDIO |
-    | `QOS_M` | 20 Mbps     | 20 Mbps   | VIDEO |
-    | `QOS_S` | 10 Mbps     | 10 Mbps   | VIDEO |
+    | Profile | Max DL BW | Max UL BW | Min DL BW | Min UL BW | Media Type |
+    |---------|-----------|-----------|-----------|-----------|------------|
+    | `QOS_E` | 5 Mbps    | 5 Mbps    | 2 Mbps    | 2 Mbps    | VIDEO |
+    | `QOS_L` | 35 Mbps   | 18 Mbps   | 25 Mbps   | 15 Mbps   | VIDEO |
+    | `QOS_M` | 20 Mbps   | 10 Mbps   | 15 Mbps   | 5 Mbps    | VIDEO |
+    | `QOS_S` | 15 Mbps   | 10 Mbps   | 10 Mbps   | 5 Mbps    | VIDEO |
         
     Optional fields:
     - device: Device information
