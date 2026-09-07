@@ -56,10 +56,10 @@ Implements 3GPP TS 29.122 Application Session Context with QoS API.
 - `QOS_MAPPING`: JSON mapping of QoS profiles to network parameters
 
 **QoS Profiles**:
-- `QOS_E`: 1 Mbps UL/DL (Video)
-- `QOS_L`: 20 Mbps UL/DL (Audio)
-- `QOS_M`: 8 Mbps UL/DL (Video)
-- `QOS_S`: 4 Mbps UL/DL (Video)
+- `QOS_E`: 5 Mbps DL / 5 Mbps UL max, 2 Mbps DL / 2 Mbps UL min (Video)
+- `QOS_L`: 35 Mbps DL / 18 Mbps UL max, 25 Mbps DL / 15 Mbps UL min (Video)
+- `QOS_M`: 20 Mbps DL / 10 Mbps UL max, 15 Mbps DL / 5 Mbps UL min (Video)
+- `QOS_S`: 15 Mbps DL / 10 Mbps UL max, 10 Mbps DL / 5 Mbps UL min (Video)
 
 ### CAMARA QoD Service
 

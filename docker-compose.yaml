@@ -12,10 +12,10 @@ services:
       # Define QoS profiles via environment variables
       QOS_MAPPING: >
         {
-          "QOS_E": {"marBwDl": "1 Mbps", "marBwUl": "1 Mbps", "mediaType": "VIDEO"},
-          "QOS_L": {"marBwDl": "20 Mbps", "marBwUl": "20 Mbps", "mediaType": "AUDIO"},
-          "QOS_M": {"marBwDl": "8 Mbps", "marBwUl": "8 Mbps", "mediaType": "VIDEO"},
-          "QOS_S": {"marBwDl": "4 Mbps", "marBwUl": "4 Mbps", "mediaType": "VIDEO"}
+          "QOS_E": {"marBwDl": "5 Mbps", "marBwUl": "5 Mbps", "mirBwDl": "2 Mbps", "mirBwUl": "2 Mbps", "mediaType": "VIDEO"},
+          "QOS_L": {"marBwDl": "35 Mbps", "marBwUl": "18 Mbps", "mirBwDl": "25 Mbps", "mirBwUl": "15 Mbps", "mediaType": "VIDEO"},
+          "QOS_M": {"marBwDl": "20 Mbps", "marBwUl": "10 Mbps", "mirBwDl": "15 Mbps", "mirBwUl": "5 Mbps", "mediaType": "VIDEO"},
+          "QOS_S": {"marBwDl": "15 Mbps", "marBwUl": "10 Mbps", "mirBwDl": "10 Mbps", "mirBwUl": "5 Mbps", "mediaType": "VIDEO"}
         }
     ports:
       - "8585:8001"  
