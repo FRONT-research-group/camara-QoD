@@ -37,16 +37,26 @@ QOD_SESSIONS = f"{QOD_HOST}/quality-on-demand/v1/sessions"
 RPI_HOST    = "10.220.2.128"            # RPi IP address
 RPI_USER    = "pi"                       # SSH username
 RPI_SSH_KEY = os.path.expanduser("~/.ssh/front_ecdsa")  # SSH private key path
-RPI_LOCAL   = True                       # Set True when running this script directly on the RPi
+RPI_LOCAL   = False                      # Set True when running this script directly on the RPi
 
 # iPerf3 server (must be reachable from RPi through the 5G network)
 IPERF_SERVER = "10.220.2.166"
+
+# Callback sink for QoD session notifications (NEF will POST status updates here)
+# callback-qod.py must be running: python3 callback-qod.py
+# Use your PC's LAN IP (not localhost) so the NEF Docker container can reach it
+SINK_URL = "http://localhost:9000/callback"
 
 # Optional SSH access to the iPerf3 server so the script can auto-start
 # the background traffic server instance on port 5202.
 # Set IPERF_SERVER_SSH_USER = None to skip auto-start (you must start it manually).
 IPERF_SERVER_SSH_USER = None          # e.g. "ubuntu" or "pi"
 IPERF_SERVER_SSH_KEY  = os.path.expanduser("~/.ssh/front_ecdsa")
+
+# Set True when this script runs ON the iperf3 server machine.
+# The script will start `iperf3 -s` locally on ports 5201 and 5202
+# and stream their output to the console in real time.
+LOCAL_IPERF_SERVER = False
 
 # UE identity (RPi IP as seen by the 5G network)
 UE_PUBLIC_IP  = "10.45.0.85"
@@ -60,7 +70,7 @@ UE_PRIVATE_IP = "10.45.0.85"
 APP_SERVER_CIDR = "0.0.0.0/0"
 
 # QoS profile to test: QOS_E | QOS_S | QOS_M | QOS_L
-QOS_PROFILE = "QOS_M"
+QOS_PROFILE = "QOS_S"
 
 # ── Thresholds: only DL and UL throughput ────────────────────
 # Values match the profile definitions in the camara-QoD README.
@@ -83,22 +93,28 @@ QOS_THRESHOLDS = {
 IPERF_BG_PORT = 5202
 
 # ── TC_QoD_1 settings ────────────────────────────────────────
-TC1_DURATION_SEC     = 120  # measurement window per scenario (seconds)
-TC1_IPERF_DURATION   = 5     # seconds per iperf3 sample (DL and UL each) — 5s gives ~7 samples/window
-TC1_SAMPLE_INTERVAL  = 2    # seconds to wait between consecutive samples
-TC1_IPERF_BITRATE    = "8M"  # bitrate per background traffic stream — 2×8M=16M exceeds 10M cap without saturating UL
-TC1_NUM_BG_STREAMS   = 2    # parallel background streams launched at start of measurement
+TC1_DURATION_SEC     = 60  # measurement window per scenario (spec: 300s / 5 min)
+TC1_IPERF_DURATION   = 10    # seconds per iperf3 sample (DL and UL each)
+TC1_SAMPLE_INTERVAL  = 1     # seconds between consecutive samples → ~18 samples/window
+# BG traffic when QoD is OFF (scenarios 1 & 2) — heavy load to saturate the network
+TC1_IPERF_BITRATE    = "15M" # per-stream bitrate
+TC1_NUM_BG_STREAMS   = 3     # parallel streams → 3 × 8M = 24M total DL
+# BG traffic when QoD is ON (scenario 3) — lighter load so the QoD-protected
+# measurement probe can still receive traffic; just enough to prove congestion
+TC1_IPERF_BITRATE_QOD  = "4M" # per-stream bitrate with QoD active
+TC1_NUM_BG_STREAMS_QOD = 2  # streams → 2 × 4M = 8M total DL (well below cap)
 
 # ── TC_QoD_2 settings ────────────────────────────────────────
-TC2_NUM_REQUESTS        = 60     # sequential main UE requests per step
+TC2_NUM_REQUESTS        = 60    # sequential main UE requests per step (spec: 100)
 TC2_SEQUENTIAL_DELAY    = 1.0    # seconds between sequential requests
 TC2_CONCURRENT_STEP_HZ  = 10.0   # concurrent load increment per step (spec: +10 Hz)
-TC2_MAX_CONCURRENT_HZ   = 30.0   # stop stepping even if KPIs still pass (safety cap)
+TC2_MAX_CONCURRENT_HZ   = 10.0   # stop stepping even if KPIs still pass (capped at 10 Hz)
 TC2_WORKERS_PER_10HZ    = 5      # stress worker threads per 10 Hz block
 
 # ── Output ────────────────────────────────────────────────────
-REPORT_PATH     = "results/kpi_report.json"
-CSV_REPORT_PATH = "results/kpi_report.csv"
+REPORT_PATH  = "results/kpi_report.json"
+CSV_TC1_PATH = "results/kpi_tc1_retainability.csv"
+CSV_TC2_PATH = "results/kpi_tc2_establishment.csv"
 
 # ── KPI pass/fail thresholds (from ENVELOPE spec) ────────────
 RETAINABILITY_THRESHOLD_PCT      = 95.0
@@ -196,8 +212,20 @@ class SSHRunner:
             print("[SSH] Disconnected")
 
     def run(self, cmd: str, timeout: int = 120) -> Tuple[str, str, int]:
-        """Run a command and wait for it to finish. Returns (stdout, stderr, exit_code)."""
-        _, stdout, stderr = self._client.exec_command(cmd, timeout=timeout)
+        """Run a command and wait for it to finish. Returns (stdout, stderr, exit_code).
+
+        Enforces a hard wall-clock timeout by polling exit_status_ready() so the
+        script never hangs if the remote command stalls (e.g. iperf3 stuck on a
+        dropped connection).  paramiko's exec_command timeout= only covers socket
+        reads, not the full command lifetime.
+        """
+        _, stdout, stderr = self._client.exec_command(cmd)
+        deadline = time.time() + timeout
+        while not stdout.channel.exit_status_ready():
+            if time.time() > deadline:
+                stdout.channel.close()
+                return "", f"Command timed out after {timeout}s", 1
+            time.sleep(0.2)
         exit_code = stdout.channel.recv_exit_status()
         return stdout.read().decode(), stderr.read().decode(), exit_code
 
@@ -261,7 +289,14 @@ def run_iperf_sample(
 
     if code != 0:
         direction = "DL" if reverse else "UL"
-        print(f"[iperf3-{direction}] Error (exit {code}): {stderr.strip()[:120]}")
+        # iperf3 -J puts errors in stdout JSON {"error": "..."}, not stderr
+        err_msg = stderr.strip()
+        if not err_msg:
+            try:
+                err_msg = json.loads(stdout).get("error", stdout.strip()[:120])
+            except Exception:
+                err_msg = stdout.strip()[:120]
+        print(f"[iperf3-{direction}] Error (exit {code}): {err_msg[:200]}")
         return None
 
     try:
@@ -331,6 +366,7 @@ def build_session_payload(
         },
         "qosProfile": qos_profile,
         "duration": duration,
+        "sink": SINK_URL,
     }
 
 
@@ -415,6 +451,54 @@ def poll_qod_session_status(
         time.sleep(poll_interval)
     print(f"[QoD] Timed out waiting for qosStatus={target_status} after {timeout}s")
     return None
+
+
+# ─────────────────────────────────────────────────────────────
+# Local iPerf3 server launcher
+# ─────────────────────────────────────────────────────────────
+
+_local_iperf_procs: List[subprocess.Popen] = []
+
+
+def _relay_server_output(proc: subprocess.Popen, tag: str) -> None:
+    """Read lines from an iperf3 server subprocess and print them live."""
+    for line in proc.stdout:  # type: ignore[union-attr]
+        print(f"[{tag}] {line}", end="", flush=True)
+
+
+def start_local_iperf_servers() -> None:
+    """
+    Start `iperf3 -s` on ports 5201 (measurement) and IPERF_BG_PORT (background
+    traffic) as local subprocesses.  Output is streamed to the console so you
+    can see connections arriving, without blocking the rest of the script.
+    Call stop_local_iperf_servers() on exit to terminate the processes.
+    """
+    for port in (5201, IPERF_BG_PORT):
+        cmd = ["iperf3", "-s", "-p", str(port)]
+        tag = f"iperf3-s:{port}"
+        print(f"[Server] Starting {' '.join(cmd)}")
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        _local_iperf_procs.append(proc)
+        t = threading.Thread(target=_relay_server_output, args=(proc, tag), daemon=True)
+        t.start()
+        print(f"[Server] iperf3 -s -p {port} started (PID {proc.pid}) ✅")
+
+
+def stop_local_iperf_servers() -> None:
+    """Terminate any iperf3 server processes started by start_local_iperf_servers."""
+    for proc in _local_iperf_procs:
+        proc.terminate()
+        try:
+            proc.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+    _local_iperf_procs.clear()
+    print("[Server] Local iperf3 servers stopped.")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -596,7 +680,24 @@ def run_tc_qod_1_scenario(
     samples: List[Sample]     = []
 
     try:
-        # ── Step 1: Apply QoD session ────────────────────────
+        # ── Step 1: Start BG traffic first so the network is already
+        #            congested before QoD is applied ─────────────────
+        if enable_background:
+            if check_bg_server_reachable(ssh, IPERF_SERVER):
+                # Extra margin: ramp-up time + QoD creation/poll time + measurement window
+                bg_duration = TC1_DURATION_SEC + 60
+                bg_bitrate  = TC1_IPERF_BITRATE_QOD if enable_qod else TC1_IPERF_BITRATE
+                bg_streams  = TC1_NUM_BG_STREAMS_QOD if enable_qod else TC1_NUM_BG_STREAMS
+                start_background_traffic(
+                    ssh, IPERF_SERVER, bg_bitrate, bg_duration, bg_streams
+                )
+                print(f"  [▶ BG] {bg_streams} streams × {bg_bitrate} DL "
+                      f"— waiting 5s to saturate the network before QoD...")
+                time.sleep(5)
+            else:
+                print(f"[TC_QoD_1] ⚠️  BG traffic skipped — measurements will not reflect congestion")
+
+        # ── Step 2: Apply QoD session (network already congested) ────
         if enable_qod:
             print("[TC_QoD_1] Applying QoD session via API...")
             payload = build_session_payload(
@@ -626,7 +727,7 @@ def run_tc_qod_1_scenario(
             else:
                 print(f"[TC_QoD_1] WARNING: QoD session failed → {qod_result.error}")
 
-        # ── Step 2 & 3: BG traffic + measurement loop ─────────
+        # ── Step 3: Measurement loop ──────────────────────────────────
         print(f"\n[TC_QoD_1] Measurement started — window = {TC1_DURATION_SEC}s\n")
         print(f"  {'#':>4}  {'Status':<6}  {'DL (Mbps)':>10}  {'UL (Mbps)':>10}  "
               f"{'DL threshold':>14}  {'UL threshold':>14}")
@@ -635,18 +736,6 @@ def run_tc_qod_1_scenario(
         loop_start = time.time()
         end_time   = loop_start + TC1_DURATION_SEC
         sample_num = 0
-
-        # Start BG traffic at full rate before the first sample
-        if enable_background:
-            if check_bg_server_reachable(ssh, IPERF_SERVER):
-                remaining = TC1_DURATION_SEC + 5
-                start_background_traffic(
-                    ssh, IPERF_SERVER, TC1_IPERF_BITRATE, remaining, TC1_NUM_BG_STREAMS
-                )
-                print(f"  [▶ BG] {TC1_NUM_BG_STREAMS} streams × {TC1_IPERF_BITRATE} DL — waiting 3s to ramp up")
-                time.sleep(3)
-            else:
-                print(f"[TC_QoD_1] ⚠️  BG traffic skipped — measurements will not reflect congestion")
 
         while time.time() < end_time:
 
@@ -854,6 +943,11 @@ def save_report(
     tc2_results: List[ApiKpiResult],
 ):
     os.makedirs(os.path.dirname(REPORT_PATH), exist_ok=True)
+
+    # ── JSON report (full detail) ────────────────────────────
+    tc1_passed = sum(1 for r in tc1_results if r.scenario_check_ok)
+    tc2_passed = sum(1 for r in tc2_results if r.success_rate_ok and r.establishment_time_ok)
+
     report = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "qos_profile": QOS_PROFILE,
@@ -862,6 +956,18 @@ def save_report(
             "retainability_pct": RETAINABILITY_THRESHOLD_PCT,
             "success_rate_pct": SUCCESS_RATE_THRESHOLD_PCT,
             "establishment_time_ms": ESTABLISHMENT_TIME_THRESHOLD_MS,
+        },
+        "summary": {
+            "TC_QoD_1_KPI_Enab_QoD_QoSSessionRetainability": {
+                "total_scenarios": len(tc1_results),
+                "scenarios_passed": tc1_passed,
+                "overall_verdict": "PASS" if tc1_passed == len(tc1_results) and tc1_results else "FAIL",
+            },
+            "TC_QoD_2_KPI_Enab_QoD_SuccessRate_and_EstablishmentTime": {
+                "total_steps": len(tc2_results),
+                "steps_passed": tc2_passed,
+                "overall_verdict": "PASS" if tc2_passed == len(tc2_results) and tc2_results else "FAIL",
+            },
         },
         "TC_QoD_1_KPI_Enab_QoD_QoSSessionRetainability": [
             asdict(r) for r in tc1_results
@@ -872,29 +978,20 @@ def save_report(
     }
     with open(REPORT_PATH, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
-    print(f"\n📄 Full report saved → {REPORT_PATH}")
+    print(f"\n📄 JSON report saved  → {REPORT_PATH}")
 
-    # ── CSV export ────────────────────────────────────────────
+    # ── TC_QoD_1 CSV ─────────────────────────────────────────
     tc1_fields = [
-        "test_case", "scenario", "qos_profile",
+        "kpi", "scenario", "qos_profile",
         "total_samples", "qos_ok_samples", "retainability_pct",
         "avg_dl_mbps", "min_dl_mbps", "max_dl_mbps", "p95_dl_mbps", "stdev_dl_mbps",
         "avg_ul_mbps", "min_ul_mbps", "max_ul_mbps", "p95_ul_mbps", "stdev_ul_mbps",
-        "scenario_check_ok", "scenario_check_desc", "threshold_met",
+        "threshold_met", "scenario_check_ok", "scenario_check_desc", "verdict",
     ]
-    tc2_fields = [
-        "test_case", "scenario", "concurrent_hz",
-        "total_requests", "successful", "failed", "success_rate_pct",
-        "avg_establishment_ms", "min_establishment_ms", "p50_establishment_ms",
-        "p95_establishment_ms", "max_establishment_ms", "stdev_establishment_ms",
-        "success_rate_ok", "establishment_time_ok",
-    ]
-    all_fields = list(dict.fromkeys(tc1_fields + tc2_fields))  # preserve order, no dupes
-
-    rows = []
+    tc1_rows = []
     for r in tc1_results:
-        rows.append({
-            "test_case":           "TC_QoD_1",
+        tc1_rows.append({
+            "kpi":                 "KPI_Enab_QoD_QoSSessionRetainability",
             "scenario":            r.scenario,
             "qos_profile":         r.qos_profile,
             "total_samples":       r.total_samples,
@@ -910,13 +1007,30 @@ def save_report(
             "max_ul_mbps":         r.max_ul_mbps,
             "p95_ul_mbps":         r.p95_ul_mbps,
             "stdev_ul_mbps":       r.stdev_ul_mbps,
+            "threshold_met":       r.threshold_met,
             "scenario_check_ok":   r.scenario_check_ok,
             "scenario_check_desc": r.scenario_check_desc,
-            "threshold_met":       r.threshold_met,
+            "verdict":             "PASS" if r.scenario_check_ok else "FAIL",
         })
+    os.makedirs(os.path.dirname(CSV_TC1_PATH), exist_ok=True)
+    with open(CSV_TC1_PATH, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=tc1_fields)
+        writer.writeheader()
+        writer.writerows(tc1_rows)
+    print(f"📊 TC_QoD_1 CSV saved  → {CSV_TC1_PATH}")
+
+    # ── TC_QoD_2 CSV ─────────────────────────────────────────
+    tc2_fields = [
+        "kpi", "scenario", "concurrent_hz",
+        "total_requests", "successful", "failed", "success_rate_pct",
+        "avg_establishment_ms", "min_establishment_ms", "p50_establishment_ms",
+        "p95_establishment_ms", "max_establishment_ms", "stdev_establishment_ms",
+        "success_rate_ok", "establishment_time_ok", "verdict",
+    ]
+    tc2_rows = []
     for r in tc2_results:
-        rows.append({
-            "test_case":              "TC_QoD_2",
+        tc2_rows.append({
+            "kpi":                    "KPI_Enab_QoD_SuccessRate + KPI_Enab_QoD_QoSProfileEstablishmentTime",
             "scenario":               r.scenario,
             "concurrent_hz":          r.concurrent_hz,
             "total_requests":         r.total_requests,
@@ -931,14 +1045,14 @@ def save_report(
             "stdev_establishment_ms": r.stdev_establishment_ms,
             "success_rate_ok":        r.success_rate_ok,
             "establishment_time_ok":  r.establishment_time_ok,
+            "verdict":                "PASS" if (r.success_rate_ok and r.establishment_time_ok) else "FAIL",
         })
-
-    os.makedirs(os.path.dirname(CSV_REPORT_PATH), exist_ok=True)
-    with open(CSV_REPORT_PATH, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=all_fields, extrasaction="ignore")
+    os.makedirs(os.path.dirname(CSV_TC2_PATH), exist_ok=True)
+    with open(CSV_TC2_PATH, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=tc2_fields)
         writer.writeheader()
-        writer.writerows(rows)
-    print(f"📊 CSV  report saved → {CSV_REPORT_PATH}")
+        writer.writerows(tc2_rows)
+    print(f"📊 TC_QoD_2 CSV saved  → {CSV_TC2_PATH}")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -960,6 +1074,10 @@ def main():
     else:
         ssh = SSHRunner(RPI_HOST, RPI_USER, RPI_SSH_KEY)
     ssh.connect()
+
+    # Start iperf3 servers locally (foreground, visible output) if configured
+    if LOCAL_IPERF_SERVER:
+        start_local_iperf_servers()
 
     # Ensure the BG iperf3 server is running on port 5202
     ensure_bg_server_running(IPERF_BG_PORT)
@@ -1001,8 +1119,8 @@ def main():
                 baseline_result=baseline,
             )
             tc1_results.append(result)
-            print("\n[Cooldown] 10s between scenarios...")
-            time.sleep(10)
+            print("\n[Cooldown] 20s between scenarios...")
+            time.sleep(20)
 
         # ────────────────────────────────────────────────────
         # TC_QoD_2 — Step-increase scalability test
@@ -1037,6 +1155,8 @@ def main():
 
     finally:
         ssh.disconnect()
+        if LOCAL_IPERF_SERVER:
+            stop_local_iperf_servers()
 
     # ── Save report ──────────────────────────────────────────
     save_report(tc1_results, tc2_results)
