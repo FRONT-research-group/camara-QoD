@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     environment:
       # App configuration
-      NEF_BASE_URL: "http://localhost:8001"
+      NEF_BASE_URL: "http://localhost:8585"
       PCF_BASE_URL: "10.220.2.73"
       PCF_PORT: "8086"
 
@@ -18,14 +18,14 @@ services:
           "QOS_S": {"marBwDl": "15 Mbps", "marBwUl": "10 Mbps", "mirBwDl": "10 Mbps", "mirBwUl": "5 Mbps", "mediaType": "VIDEO"}
         }
     ports:
-      - "8585:8001"  
+      - "8585:8585"  
 
   camara-qod:
     image: ghcr.io/front-research-group/camara-qod:latest
     container_name: camara-qod
     restart: unless-stopped
     environment:
-      ASSESSIONWITHQOS_URL: "http://nef-qos:8001/3gpp-as-session-with-qos/v1"
+      ASSESSIONWITHQOS_URL: "http://nef-qos:8585/3gpp-as-session-with-qos/v1"
       LOG_LEVEL: "DEBUG"
     depends_on:
       - nef-qos
